@@ -1,0 +1,8 @@
+* text=auto
+
+# Server-executed files must retain Unix line endings after Windows edits.
+*.sh text eol=lf
+.githooks/* text eol=lf
+*.php text eol=lf
+*.yml text eol=lf
+.htaccess text eol=lf

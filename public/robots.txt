@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /workspace
+Disallow: /plans/
+Disallow: /auth/
+Disallow: /api/
+
+Sitemap: https://onboarding.9ostech.com/sitemap.xml

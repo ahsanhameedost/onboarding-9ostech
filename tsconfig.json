@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/proxy.ts",
+    "src/app/api",
+    "src/app/layout.tsx",
+    "src/app/not-found.tsx",
+    "src/app/robots.ts",
+    "src/app/sitemap.ts",
+    "src/app/(auth)/layout.tsx",
+    "src/app/(auth)/auth",
+    "src/app/(protected)/layout.tsx",
+    "src/app/(protected)/**/page.tsx",
+    "src/app/(protected)/**/PlanPreview.tsx",
+    "src/lib/auth/server.ts",
+    "src/lib/mysql",
+    "src/lib/plans"
+  ]
+}

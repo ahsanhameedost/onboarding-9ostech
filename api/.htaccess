@@ -1,0 +1,11 @@
+Options -Indexes
+DirectoryIndex index.php
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+
+<FilesMatch "^(auth|bootstrap|config\.example|mailgun|router)\.php$">
+  Require all denied
+</FilesMatch>

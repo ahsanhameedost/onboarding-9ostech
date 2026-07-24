@@ -1,0 +1,6 @@
+---
+deployment:
+  tasks:
+    # Build directly into the subdomain's dist document root.
+    # No files are copied into the repository root.
+    - /bin/bash scripts/deploy-production.sh

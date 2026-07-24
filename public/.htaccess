@@ -1,0 +1,16 @@
+Options -Indexes
+DirectoryIndex index.html
+RewriteEngine On
+
+# Keep the PHP API and real static files out of the SPA fallback.
+RewriteRule ^api(?:/|$) - [L]
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# React Router handles all remaining application URLs.
+RewriteRule ^ index.html [L]
+
+<FilesMatch "^\.(env|git)">
+  Require all denied
+</FilesMatch>
