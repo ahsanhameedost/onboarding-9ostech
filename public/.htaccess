@@ -2,8 +2,17 @@ Options -Indexes
 DirectoryIndex index.html
 RewriteEngine On
 
-# Keep the PHP API and real static files out of the SPA fallback.
-RewriteRule ^api(?:/|$) - [L]
+# Route every /api request straight to the PHP front controller.
+# Do NOT rely on the nested api/.htaccess for this: on many cPanel setups that
+# hidden file is not uploaded, or AllowOverride is not applied to the api/
+# subdirectory, so the request would fall through to the SPA fallback below and
+# return index.html / 404 instead of JSON. index.php reads the original
+# REQUEST_URI to route, so path and query string are preserved by this rewrite.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api(?:/.*)?$ api/index.php [QSA,L]
+
+# Serve real static files and directories as-is.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
