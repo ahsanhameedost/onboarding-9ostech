@@ -18,6 +18,7 @@ Three symptoms almost always come from the same handful of causes:
 | Blank / white page | Uploaded **source** instead of the **built `dist/`** (so `index.html` still points at `/src/main.tsx`) | Upload the built output only (below) |
 | `/sign-in` refresh → 404 | The hidden `.htaccess` files were not uploaded | Enable "show hidden files", re-upload `.htaccess` |
 | `/api/...` returns 500 or HTML | PHP version too old, or `oakboard-config.php` not found | Set PHP 8.1+, place the config file correctly |
+| **Every** API call 500s right after an upgrade | A pending database migration was not run before uploading | Run the migrations first — see [Database migrations](#database-migrations) |
 
 The PHP now fails loudly instead of blank: an old PHP version returns a clear
 JSON message, and the config file is searched for **at and above the document
@@ -57,6 +58,10 @@ can also be created from the contents of `dist/`.
    'app' => [
        'url' => 'https://onboarding.9ostech.com',
        'allowed_email_domain' => '9ostech.com',
+       // Bootstrap super administrator for the admin console. This account can
+       // never be locked, demoted, or deleted from the UI, so admin access
+       // cannot be lost. Use a real address you control.
+       'super_admin_email' => 'youradmin@9ostech.com',
    ],
    ```
 3. **PHP version** — cPanel → **MultiPHP Manager** → set this domain/subdomain
@@ -95,6 +100,47 @@ Then test end to end: signup + 6-digit email code, sign in, recovery email,
 sign out, create/edit/preview/archive/restore/delete a plan, 2-week and 4-week
 PDF download, and emailing a plan PDF.
 
+## E. Admin console
+
+`/admin` shows every account, every onboarding plan with its owner, and
+sign-in activity, plus lock/unlock, force sign-out, promote/demote, and delete.
+
+An account is an administrator when **either** is true:
+
+- its email matches `app.super_admin_email` in the private config file — this
+  account is protected and can never be locked, demoted, or deleted; or
+- its `app_users.role` is `'admin'` — set from the console by an existing
+  administrator, or directly in SQL.
+
+To sign in as the super admin, create a normal account with that email through
+`/sign-in` and verify it. The **Admin** entry then appears in the workspace
+sidebar. To promote someone by hand:
+
+```sql
+UPDATE app_users SET role = 'admin' WHERE email = 'someone@9ostech.com';
+```
+
+---
+
+## Database migrations
+
+`database/mysql/schema.sql` always describes the **current** structure, so a
+**fresh** install (step B1) needs nothing extra.
+
+An **existing** database is upgraded by running the files in
+`database/mysql/migrations/` in filename order, once each, in phpMyAdmin.
+
+| Migration | Required for | Adds |
+| --- | --- | --- |
+| `2026-07-28-add-user-role.sql` | Admin console | `app_users.role` |
+
+> **Order matters.** Run the migration **before** uploading the new `dist/`.
+> The API reads `app_users.role` on every authenticated request, so uploading
+> first means **every API call returns 500** until the column exists.
+
+Re-running a migration reports `Duplicate column name` (MySQL error 1060). That
+just means it was already applied and is safe to ignore.
+
 ---
 
 ## Troubleshooting
@@ -106,6 +152,13 @@ PDF download, and emailing a plan PDF.
   explicit path with the `OAKBOARD_CONFIG_FILE` environment variable.
 - **500 with "configuration is invalid" / MySQL error** → wrong DB credentials
   or the schema was not imported (steps B1/B2).
+- **Everything 500s after an upgrade, error log says `Unknown column 'u.role'`**
+  → the admin-console migration was not run. Apply
+  `database/mysql/migrations/2026-07-28-add-user-role.sql`, then reload. No
+  rebuild or re-upload is needed.
+- **`/admin` says "Administrator access required"** → the signed-in email does
+  not match `app.super_admin_email` and its `app_users.role` is not `'admin'`.
+  Re-check step B2 / section E.
 - **404 on route refresh** → the document-root `.htaccess` is missing or
   `mod_rewrite` is off. Re-upload hidden files; ensure Apache `mod_rewrite`.
 - **No verification email** → confirm PHP **curl** is enabled, the Mailgun
@@ -115,6 +168,14 @@ PDF download, and emailing a plan PDF.
 
 ## Every future deploy
 
-Rebuild locally (`npm run build`), then re-upload/extract the new `dist/`
-contents over the old ones. The server config file and database are untouched.
-```
+1. **Check for new migrations first** — if `database/mysql/migrations/` gained a
+   file since your last deploy, run it in phpMyAdmin **before** uploading. See
+   [Database migrations](#database-migrations).
+2. Rebuild locally: `npm run build`.
+3. Re-upload/extract the new `dist/` contents over the old ones.
+
+The server config file and database are otherwise untouched.
+
+> Deploying the admin console release for the first time? That is
+> `2026-07-28-add-user-role.sql`, plus `super_admin_email` in the private
+> config (step B2).
