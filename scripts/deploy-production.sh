@@ -29,6 +29,7 @@ required_files=(
   "${DIST_ROOT}/index.html"
   "${DIST_ROOT}/.htaccess"
   "${DIST_ROOT}/api/index.php"
+  "${DIST_ROOT}/api/admin.php"
   "${DIST_ROOT}/api/auth.php"
   "${DIST_ROOT}/api/bootstrap.php"
   "${DIST_ROOT}/api/mailgun.php"
