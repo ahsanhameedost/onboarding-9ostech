@@ -5,6 +5,7 @@ export type AuthUser = {
   email?: string
   email_confirmed_at?: string | null
   last_sign_in_at?: string | null
+  is_admin?: boolean
   user_metadata: {
     full_name?: string
     name?: string
@@ -173,6 +174,8 @@ export async function signOut() {
   cacheSession(null)
   localStorage.removeItem('obf_plan_data')
   sessionStorage.removeItem('obf_plan_data')
+  // Clears the retired sign-in cache for accounts that still have it stored.
+  localStorage.removeItem('obf_session_cache')
 }
 
 export function readCookie(name: string) {

@@ -11,6 +11,7 @@ const HomePage = lazy(() => import('@/pages/home'))
 const PrivacyPage = lazy(() => import('@/pages/privacy-policy'))
 const TermsPage = lazy(() => import('@/pages/terms-of-service'))
 const WorkspaceClient = lazy(() => import('@/components/workspace-client'))
+const AdminPage = lazy(() => import('@/pages/admin'))
 
 const publicMetadata: Record<string, { title: string; description: string }> = {
   '/': {
@@ -39,8 +40,15 @@ function RouteMetadata() {
   const location = useLocation()
 
   useEffect(() => {
+    // Authenticated routes deliberately stay out of publicMetadata so they keep
+    // the noindex,nofollow robots value set below.
+    const privateTitle = location.pathname.startsWith('/plans/')
+      ? 'Onboarding Plan | OakBoard'
+      : location.pathname === '/admin'
+        ? 'Admin Console | OakBoard'
+        : 'Workspace | OakBoard'
     const metadata = publicMetadata[location.pathname] || {
-      title: location.pathname.startsWith('/plans/') ? 'Onboarding Plan | OakBoard' : 'Workspace | OakBoard',
+      title: privateTitle,
       description: 'Create and manage employee onboarding plans in OakBoard.',
     }
     document.title = metadata.title
@@ -150,6 +158,7 @@ export default function App() {
         <Route path="/sign-in" element={<LoginPage />} />
         <Route path="/auth/callback" element={<Navigate replace to="/sign-in" />} />
         <Route path="/workspace" element={<Protected><WorkspaceClient key="workspace" /></Protected>} />
+        <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
         <Route path="/plans/new" element={<Protected><WorkspaceClient key="new-plan" initialView="new" /></Protected>} />
         <Route path="/plans/archived" element={<Protected><ArchivedPlansRoute /></Protected>} />
         <Route path="/plans/:planId" element={<Protected><PlanRoute /></Protected>} />

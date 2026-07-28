@@ -15,6 +15,11 @@ return [
     'app' => [
         'url' => 'https://onboarding.example.com',
         'allowed_email_domain' => '9ostech.com',
+        // Bootstrap super administrator. This account always has admin access to
+        // the console and cannot be locked, demoted, or deleted from the UI, so
+        // administrator access can never be lost. Leave empty to rely only on
+        // the app_users.role column. Further admins are promoted from the console.
+        'super_admin_email' => 'admin@9ostech.com',
     ],
     'security' => [
         'session_secret' => 'replace_with_at_least_32_random_characters',

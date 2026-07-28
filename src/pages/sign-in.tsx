@@ -287,7 +287,7 @@ export default function LoginPage() {
     }
 
     setBusy('signin')
-    const { data, error } = await signInWithPassword(signinEmail.trim(), signinPassword, rememberMe)
+    const { error } = await signInWithPassword(signinEmail.trim(), signinPassword, rememberMe)
     setBusy(null)
 
     if (error) {
@@ -302,15 +302,8 @@ export default function LoginPage() {
       } else {
         localStorage.removeItem(REMEMBER_EMAIL_KEY)
       }
-      localStorage.setItem(
-        'obf_session_cache',
-        JSON.stringify({
-          timestamp: Date.now(),
-          email: data?.session?.user?.email || data?.user?.email || signinEmail,
-        }),
-      )
     } catch (error) {
-      console.error('Unable to cache local session:', error)
+      console.error('Unable to store the remembered email:', error)
     }
     window.setTimeout(() => router.replace('/workspace'), 700)
   }
@@ -386,17 +379,6 @@ export default function LoginPage() {
     }
 
     sessionStorage.removeItem(PENDING_SIGNUP_EMAIL_KEY)
-    try {
-      localStorage.setItem(
-        'obf_session_cache',
-        JSON.stringify({
-          timestamp: Date.now(),
-          email: data.session.user.email || pendingEmail,
-        }),
-      )
-    } catch (cacheError) {
-      console.error('Unable to cache verified session:', cacheError)
-    }
     setVerificationOk('Email verified. Opening your workspace...')
     window.setTimeout(() => router.replace('/workspace'), 500)
   }

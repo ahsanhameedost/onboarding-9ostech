@@ -25,7 +25,16 @@ type WorkspaceClientProps = {
   initialView?: WorkspaceView
 }
 
-function SidebarIcon({ name }: { name: 'recent' | 'archive' | 'signout' }) {
+function SidebarIcon({ name }: { name: 'recent' | 'archive' | 'signout' | 'admin' }) {
+  if (name === 'admin') {
+    return (
+      <svg aria-hidden="true" className="sidebar-action-icon" fill="none" viewBox="0 0 24 24">
+        <path d="M12 3l7 3v5c0 4.4-2.9 8.3-7 10-4.1-1.7-7-5.6-7-10V6l7-3Z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    )
+  }
+
   if (name === 'archive') {
     return (
       <svg aria-hidden="true" className="sidebar-action-icon" fill="none" viewBox="0 0 24 24">
@@ -99,7 +108,7 @@ function restorePlanWeeks(plan: OnboardingPlan, count: 2 | 4) {
   ;(plan.weeks || []).slice(0, count).forEach((week, weekIndex) => {
     restoredWeeks[weekIndex].title = week.title || ''
     restoredWeeks[weekIndex].goal = week.goal || ''
-    week.days.slice(0, DPW).forEach((day, dayIndex) => {
+    ;(week.days || []).slice(0, DPW).forEach((day, dayIndex) => {
       restoredWeeks[weekIndex].days[dayIndex] = {
         ...restoredWeeks[weekIndex].days[dayIndex],
         title: day.title || '',
@@ -310,7 +319,13 @@ function parseNotebookPlan(rawValue: string): ImportResult['plan'] {
 function nextWeekdayIso() {
   const date = new Date()
   while ([0, 6].includes(date.getDay())) date.setDate(date.getDate() + 1)
-  return date.toISOString().split('T')[0]
+  // The weekday is picked in local time, so the date has to be serialized from
+  // local parts too. toISOString() converts to UTC first, which shifts the day
+  // for users far enough from UTC and can hand back the Saturday or Sunday the
+  // loop above just skipped. workdays() reads this value back as local midnight.
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
 }
 
 function workdays(startStr: string, count: number) {
@@ -386,6 +401,7 @@ export default function WorkspaceClient({
   const [deleteCandidate, setDeleteCandidate] = useState<SavedOnboardingPlan | null>(null)
   const [planActionBusy, setPlanActionBusy] = useState(false)
   const [displayName, setDisplayName] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -402,6 +418,7 @@ export default function WorkspaceClient({
       const ownerId = sessionResult.session.user.id
       setHistoryOwnerId(ownerId)
       setDisplayName(getUserDisplayName(sessionResult.session.user))
+      setIsAdmin(Boolean(sessionResult.session.user.is_admin))
 
       const response = await apiFetch('/api/plans?limit=8', { cache: 'no-store' })
       const result = await response.json().catch(() => null) as { plans?: SavedOnboardingPlan[] } | null
@@ -897,6 +914,18 @@ export default function WorkspaceClient({
           </div>
 
           <div className="side-footer">
+            {isAdmin && (
+              <button
+                aria-label="Open admin console"
+                className="side-footer-item admin"
+                onClick={() => router.push('/admin')}
+                title="Admin console"
+                type="button"
+              >
+                <SidebarIcon name="admin" />
+                <span>Admin</span>
+              </button>
+            )}
             <button
               aria-label="Open archived plans"
               aria-pressed={archiveView}

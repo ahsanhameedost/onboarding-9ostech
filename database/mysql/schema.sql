@@ -9,6 +9,10 @@ CREATE TABLE IF NOT EXISTS app_users (
   id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   email VARCHAR(320) NOT NULL,
   full_name VARCHAR(160) NOT NULL DEFAULT '',
+  -- Administrators can read and manage every account and plan. The bootstrap
+  -- super admin is named by super_admin_email in the private config file and is
+  -- always treated as an administrator regardless of this column.
+  role ENUM('member', 'admin') NOT NULL DEFAULT 'member',
   password_hash VARCHAR(255) NULL,
   email_verified_at DATETIME(3) NULL,
   failed_login_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
@@ -17,7 +21,8 @@ CREATE TABLE IF NOT EXISTS app_users (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY app_users_email_unique (email)
+  UNIQUE KEY app_users_email_unique (email),
+  KEY app_users_role_idx (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS auth_sessions (

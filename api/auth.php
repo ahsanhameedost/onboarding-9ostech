@@ -92,6 +92,32 @@ function clear_auth_cookies(): void
     set_auth_cookie(OAKBOARD_CSRF_COOKIE, '', time() - 3600, false);
 }
 
+function configured_super_admin_email(): string
+{
+    return mb_strtolower(trim((string) (app_config()['super_admin_email'] ?? '')));
+}
+
+function is_root_admin(array $user): bool
+{
+    // The account named in the private config file. It is always an
+    // administrator and is protected from lock, demotion, and deletion so
+    // administrator access to the console can never be lost.
+    $configured = configured_super_admin_email();
+    return $configured !== '' && mb_strtolower(trim((string) ($user['email'] ?? ''))) === $configured;
+}
+
+function is_admin_user(array $user): bool
+{
+    return is_root_admin($user) || ($user['role'] ?? 'member') === 'admin';
+}
+
+function require_admin(array $user): void
+{
+    if (!is_admin_user($user)) {
+        json_response(['error' => 'Administrator access is required.', 'code' => 'forbidden'], 403);
+    }
+}
+
 function public_user(array $user): array
 {
     return [
@@ -102,6 +128,7 @@ function public_user(array $user): array
         ],
         'email_confirmed_at' => $user['email_verified_at'] ?? null,
         'last_sign_in_at' => $user['last_sign_in_at'] ?? null,
+        'is_admin' => is_admin_user($user),
     ];
 }
 
@@ -142,7 +169,7 @@ function authenticated_user(): array
     }
 
     $statement = database()->prepare(
-        'SELECT u.id, u.email, u.full_name, u.email_verified_at, u.last_sign_in_at,
+        'SELECT u.id, u.email, u.full_name, u.role, u.email_verified_at, u.last_sign_in_at,
                 s.id AS session_id, s.csrf_hash, s.expires_at
          FROM auth_sessions s
          INNER JOIN app_users u ON u.id = s.user_id
@@ -323,14 +350,14 @@ function verify_email_code(array $body): array
     }
 
     $statement = database()->prepare(
-        'SELECT t.*, u.email, u.full_name, u.email_verified_at, u.last_sign_in_at
+        'SELECT t.*, u.email, u.full_name, u.role, u.email_verified_at, u.last_sign_in_at
          FROM auth_tokens t INNER JOIN app_users u ON u.id = t.user_id
          WHERE u.email = :email AND t.purpose = \'email_verification\' AND t.used_at IS NULL
          ORDER BY t.created_at DESC LIMIT 1'
     );
     $statement->execute(['email' => $email]);
     $token = $statement->fetch();
-    if (!$token || strtotime((string) $token['expires_at']) < time() || (int) $token['attempts'] >= 5) {
+    if (!$token || utc_strtotime($token['expires_at']) < time() || (int) $token['attempts'] >= 5) {
         json_response(['error' => 'That code is invalid or has expired. Request a new one.', 'code' => 'otp_expired'], 400);
     }
     if (!hash_equals((string) $token['token_hash'], token_digest($code))) {
@@ -366,6 +393,13 @@ function signin_user(array $body): array
     $statement = database()->prepare('SELECT * FROM app_users WHERE email = :email LIMIT 1');
     $statement->execute(['email' => $email]);
     $user = $statement->fetch();
+    // The lockout has to be enforced before the password is verified. A wrong
+    // password returns 401 below, so checking afterwards meant a locked account
+    // still accepted unlimited guesses and the lock only ever fired once the
+    // correct password was finally supplied.
+    if ($user && is_string($user['locked_until'] ?? null) && utc_strtotime($user['locked_until']) > time()) {
+        json_response(['error' => 'Too many sign-in attempts. Please wait 15 minutes and try again.', 'code' => 'account_locked'], 429);
+    }
     if (!$user || !is_string($user['password_hash'] ?? null) || !password_verify($password, $user['password_hash'])) {
         if ($user) {
             $failed = (int) ($user['failed_login_count'] ?? 0) + 1;
@@ -375,9 +409,6 @@ function signin_user(array $body): array
             )->execute(['failed' => $failed >= 5 ? 0 : $failed, 'locked_until' => $lockedUntil, 'id' => $user['id']]);
         }
         json_response(['error' => 'Incorrect email or password. If you are new to OakBoard, create an account.', 'code' => 'invalid_credentials'], 401);
-    }
-    if (is_string($user['locked_until'] ?? null) && strtotime($user['locked_until']) > time()) {
-        json_response(['error' => 'Too many sign-in attempts. Please wait 15 minutes and try again.', 'code' => 'account_locked'], 429);
     }
     if ($user['email_verified_at'] === null) {
         json_response(['error' => 'Please verify your work email before signing in.', 'code' => 'email_not_verified'], 403);
@@ -397,7 +428,7 @@ function current_auth_session(): array
     return [
         'session' => [
             'user' => public_user($user),
-            'expires_at' => strtotime((string) $user['expires_at']),
+            'expires_at' => utc_strtotime($user['expires_at']),
         ],
     ];
 }
@@ -448,14 +479,14 @@ function confirm_password_reset(array $body): array
         json_response(['error' => 'The reset link is invalid, or the password is too short.', 'code' => 'invalid_reset'], 422);
     }
     $statement = database()->prepare(
-        'SELECT t.*, u.email, u.full_name, u.email_verified_at, u.last_sign_in_at
+        'SELECT t.*, u.email, u.full_name, u.role, u.email_verified_at, u.last_sign_in_at
          FROM auth_tokens t INNER JOIN app_users u ON u.id = t.user_id
          WHERE t.token_hash = :token_hash AND t.purpose = \'password_reset\' AND t.used_at IS NULL
          LIMIT 1'
     );
     $statement->execute(['token_hash' => token_digest($token)]);
     $record = $statement->fetch();
-    if (!$record || strtotime((string) $record['expires_at']) < time()) {
+    if (!$record || utc_strtotime($record['expires_at']) < time()) {
         json_response(['error' => 'This password reset link is invalid or has expired.', 'code' => 'reset_expired'], 400);
     }
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);

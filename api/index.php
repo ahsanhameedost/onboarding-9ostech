@@ -19,6 +19,7 @@ if (PHP_VERSION_ID < 80100) {
 require __DIR__ . '/bootstrap.php';
 require __DIR__ . '/mailgun.php';
 require __DIR__ . '/auth.php';
+require __DIR__ . '/admin.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
@@ -65,6 +66,69 @@ try {
         require_csrf($user);
     }
 
+    if (($segments[0] ?? '') === 'admin') {
+        require_admin($user);
+        $section = $segments[1] ?? '';
+        $targetId = $segments[2] ?? null;
+        if ($targetId !== null && !valid_uuid($targetId)) {
+            json_response(['error' => 'Record not found.'], 404);
+        }
+
+        if ($section === 'overview' && $method === 'GET') {
+            json_response(admin_overview());
+        }
+
+        if ($section === 'users') {
+            if ($targetId === null && $method === 'GET') {
+                json_response(admin_user_rows(
+                    admin_query_string('search'),
+                    admin_row_limit($_GET['limit'] ?? null),
+                ));
+            }
+            if ($targetId !== null && $method === 'GET') {
+                json_response(admin_user_detail($targetId));
+            }
+            if ($targetId !== null && $method === 'PATCH') {
+                json_response(admin_update_user($targetId, request_json(), $user));
+            }
+            if ($targetId !== null && $method === 'DELETE') {
+                json_response(admin_delete_user($targetId, $user));
+            }
+        }
+
+        if ($section === 'plans') {
+            if ($targetId === null && $method === 'GET') {
+                json_response(admin_plan_rows(
+                    admin_query_string('search'),
+                    admin_query_string('scope', 'all'),
+                    admin_row_limit($_GET['limit'] ?? null),
+                ));
+            }
+            if ($targetId !== null && $method === 'GET') {
+                json_response(admin_plan_detail($targetId));
+            }
+            if ($targetId !== null && $method === 'PATCH') {
+                json_response(admin_update_plan($targetId, request_json()));
+            }
+            if ($targetId !== null && $method === 'DELETE') {
+                json_response(admin_delete_plan($targetId));
+            }
+        }
+
+        json_response(['error' => 'Administrator route not found.'], 404);
+    }
+
+    // Lets the plan editor show the address the PDF will actually be sent from
+    // instead of a hard-coded one. Sits behind authenticated_user() so the
+    // configured sender is never exposed anonymously.
+    if (($segments[0] ?? '') === 'email' && ($segments[1] ?? '') === 'sender' && $method === 'GET') {
+        $mailgun = mailgun_config();
+        json_response([
+            'from_email' => $mailgun['from_email'],
+            'from_name' => trim((string) $mailgun['from_name']),
+        ]);
+    }
+
     if (($segments[0] ?? '') === 'email' && ($segments[1] ?? '') === 'plan' && $method === 'POST') {
         $body = request_json();
         try {
@@ -108,8 +172,11 @@ try {
                 'id' => uuid_v4(),
                 'owner_id' => $user['id'],
                 'plan_id' => $planId,
-                'recipient' => implode(',', $to),
-                'cc' => $cc === [] ? null : implode(',', $cc),
+                // recipient_email and cc_email are VARCHAR(320); valid_email_list
+                // allows up to five addresses, so the joined list can overrun the
+                // column and abort the request after Mailgun already accepted it.
+                'recipient' => mb_substr(implode(',', $to), 0, 320),
+                'cc' => $cc === [] ? null : mb_substr(implode(',', $cc), 0, 320),
                 'provider_id' => $result['id'],
             ]);
             json_response(['ok' => true, 'id' => $result['id']]);
@@ -126,8 +193,8 @@ try {
                     'id' => uuid_v4(),
                     'owner_id' => $user['id'],
                     'plan_id' => isset($planId) && is_string($planId) && valid_uuid($planId) ? $planId : null,
-                    'recipient' => isset($to) && is_array($to) ? implode(',', $to) : 'invalid',
-                    'cc' => isset($cc) && is_array($cc) && $cc !== [] ? implode(',', $cc) : null,
+                    'recipient' => isset($to) && is_array($to) ? mb_substr(implode(',', $to), 0, 320) : 'invalid',
+                    'cc' => isset($cc) && is_array($cc) && $cc !== [] ? mb_substr(implode(',', $cc), 0, 320) : null,
                     'error' => mb_substr($error->getMessage(), 0, 1_000),
                 ]);
             } catch (Throwable $logError) {
