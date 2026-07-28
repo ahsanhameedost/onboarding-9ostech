@@ -18,20 +18,6 @@ const features = [
   ['04', 'Share-ready output', 'Review the final plan, download a polished PDF, or send the PDF through OakBoard email delivery.'],
 ]
 
-const structuredData = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'OakBoard',
-  applicationCategory: 'BusinessApplication',
-  operatingSystem: 'Web',
-  description: 'Employee onboarding plan builder for creating structured 2-week and 4-week role-specific onboarding plans.',
-  publisher: {
-    '@type': 'Organization',
-    name: 'Oak Street Technologies',
-    url: 'https://9ostech.com/',
-  },
-}
-
 export default function HomePage() {
   return (
     <PublicInfoShell
@@ -40,11 +26,6 @@ export default function HomePage() {
       title="Build clear onboarding plans that are ready to share."
       description="OakBoard turns role expectations, weekly goals, daily activities, and expected outcomes into a consistent onboarding plan and polished PDF."
     >
-      <script
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
-        type="application/ld+json"
-      />
-
       <section className="info-section" aria-labelledby="oakboard-capabilities">
         <div className="info-section__heading">
           <span>OakBoard capabilities</span>

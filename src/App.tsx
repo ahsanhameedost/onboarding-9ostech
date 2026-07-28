@@ -40,8 +40,9 @@ function RouteMetadata() {
   const location = useLocation()
 
   useEffect(() => {
-    // Authenticated routes deliberately stay out of publicMetadata so they keep
-    // the noindex,nofollow robots value set below.
+    // publicMetadata only supplies nicer titles and descriptions. It no longer
+    // affects indexing: OakBoard is a private internal tool, so every route is
+    // noindex,nofollow.
     const privateTitle = location.pathname.startsWith('/plans/')
       ? 'Onboarding Plan | OakBoard'
       : location.pathname === '/admin'
@@ -67,7 +68,7 @@ function RouteMetadata() {
       robots.name = 'robots'
       document.head.appendChild(robots)
     }
-    robots.content = publicMetadata[location.pathname] ? 'index,follow' : 'noindex,nofollow'
+    robots.content = 'noindex,nofollow'
   }, [location.pathname])
 
   return null
