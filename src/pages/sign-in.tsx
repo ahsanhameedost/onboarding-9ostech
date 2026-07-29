@@ -31,6 +31,12 @@ function isOrgEmail(email: string) {
   return email.trim().toLowerCase().endsWith(orgDomain)
 }
 
+// Administrators land on the console; everyone else on their workspace. The
+// console's toolbar links back to /workspace, so nothing becomes unreachable.
+function landingPath(user?: { is_admin?: boolean }) {
+  return user?.is_admin ? '/admin' : '/workspace'
+}
+
 function getPasswordScore(password: string) {
   let score = 0
   if (password.length >= 8) score += 1
@@ -236,7 +242,7 @@ export default function LoginPage() {
     let active = true
     getValidSession().then((result) => {
       if (active && result.ok) {
-        router.replace('/workspace')
+        router.replace(landingPath(result.session.user))
       }
     })
     return () => {
@@ -287,7 +293,7 @@ export default function LoginPage() {
     }
 
     setBusy('signin')
-    const { error } = await signInWithPassword(signinEmail.trim(), signinPassword, rememberMe)
+    const { data, error } = await signInWithPassword(signinEmail.trim(), signinPassword, rememberMe)
     setBusy(null)
 
     if (error) {
@@ -305,7 +311,8 @@ export default function LoginPage() {
     } catch (error) {
       console.error('Unable to store the remembered email:', error)
     }
-    window.setTimeout(() => router.replace('/workspace'), 700)
+    const target = landingPath(data?.session?.user)
+    window.setTimeout(() => router.replace(target), 700)
   }
 
   async function handleSignUp(event?: FormEvent<HTMLFormElement>) {
@@ -380,7 +387,8 @@ export default function LoginPage() {
 
     sessionStorage.removeItem(PENDING_SIGNUP_EMAIL_KEY)
     setVerificationOk('Email verified. Opening your workspace...')
-    window.setTimeout(() => router.replace('/workspace'), 500)
+    const verifiedTarget = landingPath(data.session.user)
+    window.setTimeout(() => router.replace(verifiedTarget), 500)
   }
 
   async function handleResendVerificationCode() {
@@ -451,7 +459,8 @@ export default function LoginPage() {
       return
     }
     setSigninOk('Password updated. Opening your workspace...')
-    window.setTimeout(() => router.replace('/workspace'), 600)
+    const resetTarget = landingPath(data.session.user)
+    window.setTimeout(() => router.replace(resetTarget), 600)
   }
 
   const visualTitle =

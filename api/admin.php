@@ -113,7 +113,77 @@ function admin_overview(): array
     );
     $row = $statement->fetch() ?: [];
 
-    return ['overview' => array_map(static fn ($value) => (int) $value, $row)];
+    return [
+        'overview' => array_map(static fn ($value) => (int) $value, $row),
+    ] + admin_activity();
+}
+
+function admin_daily_counts(PDO $pdo, string $table, string $since): array
+{
+    // The connection runs at time_zone '+00:00', so DATE() buckets by UTC day,
+    // matching the ISO timestamps the rest of the API returns.
+    $statement = $pdo->prepare(
+        "SELECT DATE(created_at) AS bucket, COUNT(*) AS total
+         FROM {$table} WHERE created_at >= :since GROUP BY bucket"
+    );
+    $statement->execute(['since' => $since]);
+
+    $counts = [];
+    foreach ($statement->fetchAll() as $row) {
+        $counts[(string) $row['bucket']] = (int) $row['total'];
+    }
+    return $counts;
+}
+
+function admin_activity(int $days = 14): array
+{
+    $pdo = database();
+    $since = gmdate('Y-m-d 00:00:00', time() - ($days - 1) * 86400);
+
+    // Table names are literals here, never request input.
+    $signups = admin_daily_counts($pdo, 'app_users', $since);
+    $logins = admin_daily_counts($pdo, 'auth_sessions', $since);
+    $plans = admin_daily_counts($pdo, 'onboarding_plans', $since);
+
+    $daily = [];
+    for ($offset = $days - 1; $offset >= 0; $offset--) {
+        $day = gmdate('Y-m-d', time() - $offset * 86400);
+        $daily[] = [
+            'day' => $day,
+            'signups' => $signups[$day] ?? 0,
+            'logins' => $logins[$day] ?? 0,
+            'plans' => $plans[$day] ?? 0,
+        ];
+    }
+
+    $recentSignins = $pdo->query(
+        'SELECT u.email, u.full_name, s.created_at
+         FROM auth_sessions s INNER JOIN app_users u ON u.id = s.user_id
+         ORDER BY s.created_at DESC LIMIT 8'
+    )->fetchAll();
+
+    $recentPlans = $pdo->query(
+        'SELECT p.id, p.role, p.duration_weeks, p.created_at, u.email, u.full_name
+         FROM onboarding_plans p INNER JOIN app_users u ON u.id = p.owner_id
+         ORDER BY p.created_at DESC LIMIT 8'
+    )->fetchAll();
+
+    return [
+        'daily' => $daily,
+        'recentSignins' => array_map(static fn (array $row) => [
+            'email' => (string) $row['email'],
+            'fullName' => (string) ($row['full_name'] ?? ''),
+            'at' => admin_timestamp($row['created_at']),
+        ], $recentSignins),
+        'recentPlans' => array_map(static fn (array $row) => [
+            'id' => (string) $row['id'],
+            'role' => ($row['role'] ?? '') !== '' ? (string) $row['role'] : 'Untitled role',
+            'nWeeks' => (int) $row['duration_weeks'] === 4 ? 4 : 2,
+            'email' => (string) $row['email'],
+            'fullName' => (string) ($row['full_name'] ?? ''),
+            'at' => admin_timestamp($row['created_at']),
+        ], $recentPlans),
+    ];
 }
 
 function admin_user_rows(string $search = '', int $limit = 50): array

@@ -6527,3 +6527,196 @@ input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
     width: 100%;
   }
 }
+
+/* Admin console — overview dashboard
+   -------------------------------------------------------------------------
+   Charts use a single brand-green hue per metric. Each chart is one series,
+   so the heading carries identity and no legend or colour-only encoding is
+   needed. #237a3d clears 3:1 against the white card surface. */
+
+.admin-hero {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.admin-hero__tile {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafcfa 100%);
+  box-shadow: 0 8px 24px rgb(16 23 39 / 4%);
+  padding: 18px 20px;
+}
+
+.admin-hero__value {
+  color: var(--green-dark);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.admin-hero__label {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.admin-hero__sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-charts {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.admin-chart {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(16 23 39 / 4%);
+  padding: 16px 18px 14px;
+}
+
+.admin-chart figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.admin-chart__label {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-chart__total {
+  margin-left: auto;
+  color: var(--green-dark);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-chart__range {
+  width: 100%;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.admin-chart__plot {
+  display: flex;
+  align-items: flex-end;
+  /* 2px surface gap between adjacent bars. */
+  gap: 2px;
+  height: 74px;
+}
+
+.admin-chart__bar {
+  min-height: 2px;
+  flex: 1;
+  /* 4px rounded data-end, anchored to the baseline. */
+  border-radius: 4px 4px 0 0;
+  background: #237a3d;
+  transition: background 120ms ease;
+}
+
+.admin-chart__bar:hover {
+  background: var(--green-dark);
+}
+
+.admin-chart__bar.is-empty {
+  background: #e1e8e2;
+}
+
+.admin-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  padding-top: 7px;
+}
+
+.admin-feeds {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.admin-feed {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(16 23 39 / 4%);
+  padding: 16px 18px 18px;
+}
+
+.admin-feed h3 {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-feed__who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-feed__when {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.admin-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 860px) {
+  .admin-hero__value {
+    font-size: 28px;
+  }
+
+  .admin-chart__plot {
+    height: 60px;
+  }
+}
+
+/* Long names and emails must truncate rather than push the timestamp out of
+   the row, so the feed keeps a single-line rhythm at every width. */
+.admin-feed__who > div {
+  min-width: 0;
+}
+
+.admin-feed__who strong,
+.admin-feed__who span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

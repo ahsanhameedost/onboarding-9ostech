@@ -74,7 +74,11 @@ type AdminUserDetail = {
 
 type Overview = Record<string, number>
 
-type AdminTab = 'users' | 'plans'
+type DailyPoint = { day: string; signups: number; logins: number; plans: number }
+type RecentSignin = { email: string; fullName: string; at: string | null }
+type RecentPlan = { id: string; role: string; nWeeks: 2 | 4; email: string; fullName: string; at: string | null }
+
+type AdminTab = 'overview' | 'users' | 'plans'
 type PlanScope = 'all' | 'active' | 'archived'
 
 const STAT_GROUPS: Array<{ heading: string; items: Array<[string, string]> }> = [
@@ -127,6 +131,78 @@ function formatDate(value: string | null) {
   return parsed.toLocaleDateString(undefined, { dateStyle: 'medium' })
 }
 
+function relativeTime(value: string | null) {
+  if (!value) return '—'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return '—'
+  const seconds = Math.round((Date.now() - parsed.getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
+  return formatDate(value)
+}
+
+function initials(fullName: string, email: string) {
+  const source = fullName.trim() || email.split('@')[0] || '?'
+  const parts = source.split(/[\s._-]+/).filter(Boolean)
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?'
+}
+
+/**
+ * One metric, fourteen daily buckets. Deliberately a single-series chart per
+ * metric rather than one grouped chart: the heading carries identity, so no
+ * legend and no colour-only encoding is needed, and the brand green clears 3:1
+ * against the card surface. Bars keep a 2px surface gap and the reader gets a
+ * native tooltip plus a screen-reader table.
+ */
+function ActivityChart({ label, points, valueOf }: {
+  label: string
+  points: DailyPoint[]
+  valueOf: (point: DailyPoint) => number
+}) {
+  const values = points.map(valueOf)
+  const total = values.reduce((sum, value) => sum + value, 0)
+  const peak = Math.max(...values, 1)
+  const dayLabel = (day: string) =>
+    new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+
+  return (
+    <figure className="admin-chart">
+      <figcaption>
+        <span className="admin-chart__label">{label}</span>
+        <span className="admin-chart__total">{total}</span>
+        <span className="admin-chart__range">last 14 days</span>
+      </figcaption>
+      <div className="admin-chart__plot" role="img" aria-label={`${label}: ${total} in the last 14 days`}>
+        {points.map((point, index) => {
+          const value = values[index]
+          return (
+            <span
+              className={`admin-chart__bar${value === 0 ? ' is-empty' : ''}`}
+              key={point.day}
+              style={{ height: `${Math.max((value / peak) * 100, value > 0 ? 8 : 2)}%` }}
+              title={`${dayLabel(point.day)} — ${value} ${label.toLowerCase()}`}
+            />
+          )
+        })}
+      </div>
+      <div className="admin-chart__axis" aria-hidden="true">
+        <span>{dayLabel(points[0].day)}</span>
+        <span>{dayLabel(points[points.length - 1].day)}</span>
+      </div>
+      <table className="admin-sr-only">
+        <caption>{label} per day</caption>
+        <tbody>
+          {points.map((point, index) => (
+            <tr key={point.day}><th scope="row">{point.day}</th><td>{values[index]}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </figure>
+  )
+}
+
 async function readJson<T>(response: Response): Promise<T | null> {
   return await response.json().catch(() => null) as T | null
 }
@@ -134,8 +210,11 @@ async function readJson<T>(response: Response): Promise<T | null> {
 export default function AdminPage() {
   const router = useAppRouter()
   const [access, setAccess] = useState<'checking' | 'granted' | 'denied'>('checking')
-  const [tab, setTab] = useState<AdminTab>('users')
+  const [tab, setTab] = useState<AdminTab>('overview')
   const [overview, setOverview] = useState<Overview | null>(null)
+  const [daily, setDaily] = useState<DailyPoint[]>([])
+  const [recentSignins, setRecentSignins] = useState<RecentSignin[]>([])
+  const [recentPlans, setRecentPlans] = useState<RecentPlan[]>([])
   const [users, setUsers] = useState<AdminUser[] | null>(null)
   const [plans, setPlans] = useState<AdminPlan[] | null>(null)
   const [search, setSearch] = useState('')
@@ -179,10 +258,21 @@ export default function AdminPage() {
 
     async function loadOverview() {
       const response = await apiFetch('/api/admin/overview', { cache: 'no-store' })
-      const result = await readJson<{ overview?: Overview }>(response)
+      const result = await readJson<{
+        overview?: Overview
+        daily?: DailyPoint[]
+        recentSignins?: RecentSignin[]
+        recentPlans?: RecentPlan[]
+      }>(response)
       if (!active) return
-      if (response.ok && result?.overview) setOverview(result.overview)
-      else setError('The admin summary could not be loaded.')
+      if (!response.ok || !result?.overview) {
+        setError('The admin summary could not be loaded.')
+        return
+      }
+      setOverview(result.overview)
+      setDaily(result.daily ?? [])
+      setRecentSignins(result.recentSignins ?? [])
+      setRecentPlans(result.recentPlans ?? [])
     }
 
     void loadOverview()
@@ -194,6 +284,7 @@ export default function AdminPage() {
     let active = true
 
     async function loadRows() {
+      if (tab === 'overview') return
       if (tab === 'users') {
         const query = activeSearch ? `?search=${encodeURIComponent(activeSearch)}` : ''
         const response = await apiFetch(`/api/admin/users${query}`, { cache: 'no-store' })
@@ -354,6 +445,21 @@ export default function AdminPage() {
         {error && <StatusBanner tone="error">{error}</StatusBanner>}
         {notice && !error && <StatusBanner tone="success">{notice}</StatusBanner>}
 
+        <section className="admin-hero" aria-label="Key figures">
+          {([
+            ['total_users', 'Users', 'verified_users', 'verified'],
+            ['total_plans', 'Onboarding plans', 'active_plans', 'active'],
+            ['total_logins', 'Sign-ins', 'active_sessions', 'sessions live'],
+            ['emails_sent', 'Plan emails', 'emails_failed', 'failed'],
+          ] as const).map(([key, label, subKey, subLabel]) => (
+            <article className="admin-hero__tile" key={key}>
+              <span className="admin-hero__value">{overview ? overview[key] ?? 0 : '—'}</span>
+              <span className="admin-hero__label">{label}</span>
+              <span className="admin-hero__sub">{overview ? overview[subKey] ?? 0 : '—'} {subLabel}</span>
+            </article>
+          ))}
+        </section>
+
         <section className="admin-stats" aria-label="OakBoard summary">
           {STAT_GROUPS.map((group) => (
             <article className="admin-stat-group" key={group.heading}>
@@ -373,6 +479,13 @@ export default function AdminPage() {
         <div className="admin-controls">
           <div className="admin-tabs" role="tablist" aria-label="Admin sections">
             <button
+              aria-selected={tab === 'overview'}
+              className={tab === 'overview' ? 'active' : ''}
+              onClick={() => { setTab('overview'); setNotice('') }}
+              role="tab"
+              type="button"
+            >Overview</button>
+            <button
               aria-selected={tab === 'users'}
               className={tab === 'users' ? 'active' : ''}
               onClick={() => { setTab('users'); setNotice('') }}
@@ -389,7 +502,7 @@ export default function AdminPage() {
           </div>
 
           <div className="admin-filters">
-            {tab === 'plans' && (
+            {tab !== 'overview' && tab === 'plans' && (
               <select
                 aria-label="Filter plans"
                 onChange={(event) => setScope(event.target.value as PlanScope)}
@@ -400,15 +513,76 @@ export default function AdminPage() {
                 <option value="archived">Archived only</option>
               </select>
             )}
-            <input
-              aria-label={tab === 'users' ? 'Search users' : 'Search plans'}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={tab === 'users' ? 'Search name or email...' : 'Search role, title, or owner...'}
-              type="search"
-              value={search}
-            />
+            {tab !== 'overview' && (
+              <input
+                aria-label={tab === 'users' ? 'Search users' : 'Search plans'}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={tab === 'users' ? 'Search name or email...' : 'Search role, title, or owner...'}
+                type="search"
+                value={search}
+              />
+            )}
           </div>
         </div>
+
+        {tab === 'overview' && (
+          <>
+            <section className="admin-charts" aria-label="Activity over the last 14 days">
+              {daily.length > 0 ? (
+                <>
+                  <ActivityChart label="Sign-ins" points={daily} valueOf={(point) => point.logins} />
+                  <ActivityChart label="Plans created" points={daily} valueOf={(point) => point.plans} />
+                  <ActivityChart label="New signups" points={daily} valueOf={(point) => point.signups} />
+                </>
+              ) : (
+                <p className="admin-muted">Loading activity...</p>
+              )}
+            </section>
+
+            <div className="admin-feeds">
+              <section className="admin-feed" aria-labelledby="admin-recent-signins">
+                <h3 id="admin-recent-signins">Latest sign-ins</h3>
+                {recentSignins.length === 0 && <p className="admin-muted">No sign-ins recorded yet.</p>}
+                <ul className="admin-list">
+                  {recentSignins.map((entry, index) => (
+                    <li key={`${entry.email}-${entry.at}-${index}`}>
+                      <div className="admin-feed__who">
+                        <span className="admin-avatar" aria-hidden="true">{initials(entry.fullName, entry.email)}</span>
+                        <div>
+                          <strong>{entry.fullName || entry.email}</strong>
+                          <span>{entry.email}</span>
+                        </div>
+                      </div>
+                      <span className="admin-feed__when" title={formatDateTime(entry.at)}>{relativeTime(entry.at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className="admin-feed" aria-labelledby="admin-recent-plans">
+                <h3 id="admin-recent-plans">Latest plans created</h3>
+                {recentPlans.length === 0 && <p className="admin-muted">No plans created yet.</p>}
+                <ul className="admin-list">
+                  {recentPlans.map((entry) => (
+                    <li key={entry.id}>
+                      <div className="admin-feed__who">
+                        <span className="admin-avatar" aria-hidden="true">{initials(entry.fullName, entry.email)}</span>
+                        <div>
+                          <strong>{entry.role}</strong>
+                          <span>{entry.nWeeks} weeks · {entry.fullName || entry.email}</span>
+                        </div>
+                      </div>
+                      <div className="admin-list__actions">
+                        <span className="admin-feed__when" title={formatDateTime(entry.at)}>{relativeTime(entry.at)}</span>
+                        <button onClick={() => void openPlanPreview(entry.id)} type="button">View</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          </>
+        )}
 
         {tab === 'users' && (
           <div className="admin-table-wrap">
