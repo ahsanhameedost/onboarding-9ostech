@@ -112,9 +112,18 @@ An account is an administrator when **either** is true:
 - its `app_users.role` is `'admin'` — set from the console by an existing
   administrator, or directly in SQL.
 
+The email **must** be on `allowed_email_domain` (`@9ostech.com` by default).
+Signup rejects any other domain, so an address outside it can never have an
+account and the super admin could never sign in.
+
 To sign in as the super admin, create a normal account with that email through
-`/sign-in` and verify it. The **Admin** entry then appears in the workspace
-sidebar. To promote someone by hand:
+`/sign-in` and verify it. Administrators land on `/admin` at sign-in and the
+**Admin** entry appears in the workspace sidebar.
+
+Administrators can add people directly from the console with **Add user**.
+Those accounts skip email verification and are given a temporary password,
+which the person must replace the first time they sign in. To promote someone
+by hand:
 
 ```sql
 UPDATE app_users SET role = 'admin' WHERE email = 'someone@9ostech.com';
@@ -133,6 +142,7 @@ An **existing** database is upgraded by running the files in
 | Migration | Required for | Adds |
 | --- | --- | --- |
 | `2026-07-28-add-user-role.sql` | Admin console | `app_users.role` |
+| `2026-07-29-add-must-change-password.sql` | Forced password change | `app_users.must_change_password` |
 
 > **Order matters.** Run the migration **before** uploading the new `dist/`.
 > The API reads `app_users.role` on every authenticated request, so uploading

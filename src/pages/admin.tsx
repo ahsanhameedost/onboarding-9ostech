@@ -17,6 +17,7 @@ type AdminUser = {
   isVerified: boolean
   lastSignInAt: string | null
   createdAt: string | null
+  mustChangePassword: boolean
   failedLoginCount: number
   lockedUntil: string | null
   isLocked: boolean
@@ -230,6 +231,9 @@ export default function AdminPage() {
   const [confirmAction, setConfirmAction] = useState<
     { kind: 'delete-user'; user: AdminUser } | { kind: 'delete-plan'; plan: AdminPlan } | null
   >(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState({ full_name: '', email: '', password: '', role: 'member' })
+  const [createError, setCreateError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -311,6 +315,42 @@ export default function AdminPage() {
   function refreshAll() {
     setNotice('')
     setError('')
+    setRefreshToken((current) => current + 1)
+  }
+
+  function openCreateUser() {
+    setCreateForm({ full_name: '', email: '', password: '', role: 'member' })
+    setCreateError('')
+    setCreateOpen(true)
+  }
+
+  // Uses the Web Crypto API rather than Math.random so the suggested password
+  // is not predictable.
+  function suggestPassword() {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*'
+    const bytes = new Uint32Array(16)
+    crypto.getRandomValues(bytes)
+    const generated = Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('')
+    setCreateForm((current) => ({ ...current, password: generated }))
+  }
+
+  async function createUser() {
+    setCreateError('')
+    setBusy(true)
+    const response = await apiFetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createForm),
+    })
+    const result = await readJson<AdminUserDetail & { error?: string }>(response)
+    setBusy(false)
+    if (!response.ok || !result?.user) {
+      setCreateError(result?.error || 'That account could not be created.')
+      return
+    }
+    setCreateOpen(false)
+    setNotice(`${result.user.email} was created as ${result.user.role === 'admin' ? 'an administrator' : 'a member'}.`)
+    setTab('users')
     setRefreshToken((current) => current + 1)
   }
 
@@ -438,7 +478,12 @@ export default function AdminPage() {
         backTo="/workspace"
         subtitle="Every account, plan, and sign-in across OakBoard"
         title="Admin Console"
-        actions={<Button icon="check" onClick={() => void refreshAll()} type="button" variant="secondary">Refresh</Button>}
+        actions={(
+          <>
+            <Button icon="plus" onClick={openCreateUser} type="button" variant="primary">Add user</Button>
+            <Button icon="check" onClick={() => void refreshAll()} type="button" variant="secondary">Refresh</Button>
+          </>
+        )}
       />
 
       <div className="admin-body">
@@ -617,6 +662,7 @@ export default function AdminPage() {
                           {user.isVerified ? 'Verified' : 'Pending'}
                         </span>
                         {user.isLocked && <span className="admin-badge admin-badge--locked">Locked</span>}
+                        {user.mustChangePassword && <span className="admin-badge admin-badge--pending">Temp password</span>}
                       </div>
                     </td>
                     <td>{user.activePlanCount} active <span className="admin-muted">/ {user.planCount} total</span></td>
@@ -733,6 +779,7 @@ export default function AdminPage() {
               <div><span>Active sessions</span><strong>{detail.user.activeSessionCount}</strong></div>
               <div><span>Failed attempts</span><strong>{detail.user.failedLoginCount}</strong></div>
               <div><span>Locked until</span><strong>{detail.user.isLocked ? formatDateTime(detail.user.lockedUntil) : 'Not locked'}</strong></div>
+              <div><span>Password</span><strong>{detail.user.mustChangePassword ? 'Temporary — must change' : 'Set by the user'}</strong></div>
             </div>
 
             <h4>Onboarding plans ({detail.plans.length})</h4>
@@ -833,6 +880,78 @@ export default function AdminPage() {
             {!planPreview.plan?.weeks?.length && <p className="admin-muted">This plan has no stored week breakdown.</p>}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        icon="plus"
+        onClose={() => !busy && setCreateOpen(false)}
+        open={createOpen}
+        subtitle="The account is created already verified, so they can sign in immediately."
+        title="Add a user"
+        footer={(
+          <>
+            <Button disabled={busy} onClick={() => setCreateOpen(false)} type="button" variant="secondary">Cancel</Button>
+            <Button disabled={busy} icon="plus" onClick={() => void createUser()} type="button" variant="primary">
+              {busy ? 'Creating...' : 'Create user'}
+            </Button>
+          </>
+        )}
+      >
+        <div className="admin-form">
+          {createError && <StatusBanner tone="error">{createError}</StatusBanner>}
+
+          <label className="ob-field">
+            <span>Full name</span>
+            <input
+              autoComplete="off"
+              onChange={(event) => setCreateForm((c) => ({ ...c, full_name: event.target.value }))}
+              placeholder="Jane Doe"
+              value={createForm.full_name}
+            />
+          </label>
+
+          <label className="ob-field">
+            <span>Work email</span>
+            <input
+              autoComplete="off"
+              onChange={(event) => setCreateForm((c) => ({ ...c, email: event.target.value }))}
+              placeholder="jane@9ostech.com"
+              type="email"
+              value={createForm.email}
+            />
+          </label>
+
+          <label className="ob-field">
+            <span>Temporary password</span>
+            <div className="admin-form__row">
+              <input
+                autoComplete="new-password"
+                onChange={(event) => setCreateForm((c) => ({ ...c, password: event.target.value }))}
+                placeholder="At least 8 characters"
+                type="text"
+                value={createForm.password}
+              />
+              <button className="admin-form__generate" onClick={suggestPassword} type="button">Generate</button>
+            </div>
+          </label>
+
+          <label className="ob-field">
+            <span>Role</span>
+            <select
+              onChange={(event) => setCreateForm((c) => ({ ...c, role: event.target.value }))}
+              value={createForm.role}
+            >
+              <option value="member">Member — can create and manage their own plans</option>
+              <option value="admin">Administrator — full access to this console</option>
+            </select>
+          </label>
+
+          <StatusBanner tone="info">
+            This password is temporary and is shown in plain text so you can copy it now.
+            OakBoard does not email it — share it with the person directly. They must
+            replace it the first time they sign in.
+          </StatusBanner>
+        </div>
       </Modal>
 
       <Modal

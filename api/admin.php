@@ -48,6 +48,7 @@ function admin_public_user(array $row): array
         'isVerified' => ($row['email_verified_at'] ?? null) !== null,
         'lastSignInAt' => admin_timestamp($row['last_sign_in_at'] ?? null),
         'createdAt' => admin_timestamp($row['created_at'] ?? null),
+        'mustChangePassword' => (int) ($row['must_change_password'] ?? 0) === 1,
         'failedLoginCount' => (int) ($row['failed_login_count'] ?? 0),
         'lockedUntil' => $lockedUntil,
         'isLocked' => $lockedUntil !== null && utc_strtotime($row['locked_until']) > time(),
@@ -197,7 +198,7 @@ function admin_user_rows(string $search = '', int $limit = 50): array
 
     $statement = database()->prepare(
         "SELECT u.id, u.email, u.full_name, u.role, u.email_verified_at, u.last_sign_in_at,
-                u.failed_login_count, u.locked_until, u.created_at,
+                u.failed_login_count, u.locked_until, u.created_at, u.must_change_password,
                 (SELECT COUNT(*) FROM onboarding_plans p WHERE p.owner_id = u.id) AS plan_count,
                 (SELECT COUNT(*) FROM onboarding_plans p WHERE p.owner_id = u.id AND p.archived_at IS NULL) AS active_plan_count,
                 (SELECT COUNT(*) FROM auth_sessions s WHERE s.user_id = u.id) AS login_count,
@@ -222,7 +223,7 @@ function admin_user_detail(string $userId): array
 {
     $statement = database()->prepare(
         'SELECT u.id, u.email, u.full_name, u.role, u.email_verified_at, u.last_sign_in_at,
-                u.failed_login_count, u.locked_until, u.created_at,
+                u.failed_login_count, u.locked_until, u.created_at, u.must_change_password,
                 (SELECT COUNT(*) FROM onboarding_plans p WHERE p.owner_id = u.id) AS plan_count,
                 (SELECT COUNT(*) FROM onboarding_plans p WHERE p.owner_id = u.id AND p.archived_at IS NULL) AS active_plan_count,
                 (SELECT COUNT(*) FROM auth_sessions s WHERE s.user_id = u.id) AS login_count,
@@ -329,6 +330,58 @@ function admin_plan_detail(string $planId): array
         json_response(['error' => 'Plan not found.'], 404);
     }
     return ['plan' => admin_public_plan($row, true)];
+}
+
+function admin_create_user(array $body): array
+{
+    $email = normalized_work_email($body['email'] ?? null);
+    $password = validate_password($body['password'] ?? null);
+    $fullName = is_string($body['full_name'] ?? null) ? trim($body['full_name']) : '';
+    $role = ($body['role'] ?? 'member') === 'admin' ? 'admin' : 'member';
+
+    if ($email === null) {
+        json_response([
+            'error' => 'Enter a valid work email ending in @' . allowed_email_domain() . '.',
+            'code' => 'invalid_email',
+        ], 422);
+    }
+    if ($fullName === '' || mb_strlen($fullName) > 160) {
+        json_response(['error' => 'Enter a full name of up to 160 characters.', 'code' => 'invalid_name'], 422);
+    }
+    if ($password === null) {
+        json_response(['error' => 'The password must be at least 8 characters.', 'code' => 'invalid_password'], 422);
+    }
+
+    $db = database();
+    $lookup = $db->prepare('SELECT id FROM app_users WHERE email = :email LIMIT 1');
+    $lookup->execute(['email' => $email]);
+    if ($lookup->fetchColumn() !== false) {
+        json_response(['error' => 'That email already has an OakBoard account.', 'code' => 'email_exists'], 409);
+    }
+
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    if (!is_string($passwordHash)) {
+        throw new RuntimeException('Password hashing failed.');
+    }
+
+    // Administrator-created accounts skip the OTP step and are stored already
+    // verified, so the person can sign in with these credentials right away.
+    // authenticated_user() rejects any account whose email_verified_at is null.
+    // must_change_password = 1 so the temporary password set here cannot become
+    // the person's permanent one.
+    $id = uuid_v4();
+    $db->prepare(
+        'INSERT INTO app_users (id, email, full_name, role, password_hash, must_change_password, email_verified_at)
+         VALUES (:id, :email, :full_name, :role, :password_hash, 1, UTC_TIMESTAMP(3))'
+    )->execute([
+        'id' => $id,
+        'email' => $email,
+        'full_name' => mb_substr($fullName, 0, 160),
+        'role' => $role,
+        'password_hash' => $passwordHash,
+    ]);
+
+    return admin_user_detail($id);
 }
 
 function admin_target_user(string $userId): array

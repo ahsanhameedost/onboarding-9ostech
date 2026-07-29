@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS app_users (
   -- always treated as an administrator regardless of this column.
   role ENUM('member', 'admin') NOT NULL DEFAULT 'member',
   password_hash VARCHAR(255) NULL,
+  -- Set when an administrator creates the account with a temporary password.
+  -- The app forces a change before the workspace or console opens.
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,
   email_verified_at DATETIME(3) NULL,
   failed_login_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
   locked_until DATETIME(3) NULL,

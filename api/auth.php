@@ -6,7 +6,11 @@ const OAKBOARD_SESSION_COOKIE = 'oakboard_session';
 const OAKBOARD_CSRF_COOKIE = 'oakboard_csrf';
 const OAKBOARD_REGULAR_SESSION_SECONDS = 43_200;
 const OAKBOARD_REMEMBERED_SESSION_SECONDS = 2_592_000;
-const OAKBOARD_OTP_SECONDS = 600;
+// Kept generous because Mailgun delivery to the work domain can lag by several
+// minutes; a shorter window expired codes before they arrived. The six-digit
+// code is still protected by the five-attempt limit and by only one code being
+// live at a time.
+const OAKBOARD_OTP_SECONDS = 1_800;
 const OAKBOARD_RESET_SECONDS = 1_800;
 
 function ensure_auth_schema(): void
@@ -129,7 +133,52 @@ function public_user(array $user): array
         'email_confirmed_at' => $user['email_verified_at'] ?? null,
         'last_sign_in_at' => $user['last_sign_in_at'] ?? null,
         'is_admin' => is_admin_user($user),
+        'must_change_password' => (int) ($user['must_change_password'] ?? 0) === 1,
     ];
+}
+
+function change_password(array $body): array
+{
+    $user = authenticated_user();
+    require_csrf($user);
+
+    $current = is_string($body['current_password'] ?? null) ? $body['current_password'] : '';
+    $next = validate_password($body['password'] ?? null);
+
+    $lookup = database()->prepare('SELECT password_hash FROM app_users WHERE id = :id LIMIT 1');
+    $lookup->execute(['id' => $user['id']]);
+    $hash = $lookup->fetchColumn();
+
+    if (!is_string($hash) || $current === '' || !password_verify($current, $hash)) {
+        json_response(['error' => 'The current password is incorrect.', 'code' => 'invalid_current_password'], 403);
+    }
+    if ($next === null) {
+        json_response(['error' => 'The new password must be at least 8 characters.', 'code' => 'invalid_password'], 422);
+    }
+    if (password_verify($next, $hash)) {
+        json_response(['error' => 'Choose a password you have not used here before.', 'code' => 'password_reused'], 422);
+    }
+
+    $passwordHash = password_hash($next, PASSWORD_DEFAULT);
+    if (!is_string($passwordHash)) {
+        throw new RuntimeException('Password hashing failed.');
+    }
+
+    $db = database();
+    $db->prepare(
+        'UPDATE app_users SET password_hash = :password_hash, must_change_password = 0,
+         failed_login_count = 0, locked_until = NULL WHERE id = :id'
+    )->execute(['password_hash' => $passwordHash, 'id' => $user['id']]);
+
+    // Every other session was created against the old password, so drop them
+    // and keep only the one making this request.
+    $db->prepare(
+        'UPDATE auth_sessions SET revoked_at = UTC_TIMESTAMP(3)
+         WHERE user_id = :user_id AND id <> :session_id AND revoked_at IS NULL'
+    )->execute(['user_id' => $user['id'], 'session_id' => $user['session_id']]);
+
+    $user['must_change_password'] = 0;
+    return ['ok' => true, 'user' => public_user($user)];
 }
 
 function create_auth_session(array $user, bool $remember): array
@@ -169,7 +218,8 @@ function authenticated_user(): array
     }
 
     $statement = database()->prepare(
-        'SELECT u.id, u.email, u.full_name, u.role, u.email_verified_at, u.last_sign_in_at,
+        'SELECT u.id, u.email, u.full_name, u.role, u.must_change_password,
+                u.email_verified_at, u.last_sign_in_at,
                 s.id AS session_id, s.csrf_hash, s.expires_at
          FROM auth_sessions s
          INNER JOIN app_users u ON u.id = s.user_id
@@ -494,8 +544,12 @@ function confirm_password_reset(array $body): array
         throw new RuntimeException('Password hashing failed.');
     }
     $db = database();
+    // Clearing must_change_password matters here too: an administrator-created
+    // account that goes through "Forgot password" instead of the forced change
+    // would otherwise still be flagged and get sent straight back to it.
     $db->prepare(
-        'UPDATE app_users SET password_hash = :password_hash, failed_login_count = 0, locked_until = NULL,
+        'UPDATE app_users SET password_hash = :password_hash, must_change_password = 0,
+         failed_login_count = 0, locked_until = NULL,
          last_sign_in_at = UTC_TIMESTAMP(3) WHERE id = :id'
     )->execute(['password_hash' => $passwordHash, 'id' => $record['user_id']]);
     $db->prepare('UPDATE auth_tokens SET used_at = UTC_TIMESTAMP(3) WHERE id = :id')

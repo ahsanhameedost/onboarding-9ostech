@@ -6720,3 +6720,148 @@ input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Admin console — add-user form */
+
+.admin-form {
+  display: grid;
+  gap: 13px;
+}
+
+.admin-form select,
+.admin-form input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.admin-form select:focus,
+.admin-form input:focus {
+  outline: 2px solid var(--green-accent);
+  outline-offset: 1px;
+}
+
+.admin-form__row {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-form__generate {
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.admin-form__generate:hover {
+  border-color: var(--green);
+  background: var(--green);
+  color: #ffffff;
+}
+
+/* Responsive fixes
+   -------------------------------------------------------------------------
+   The modal rule is a genuine fix rather than a restyle: .ob-modal clips with
+   overflow:hidden but had no height ceiling, so a tall dialog (the admin user
+   detail, with its plans, sessions, and email lists) was cut off with no way
+   to scroll to the buttons. Short dialogs never reach the ceiling, so they
+   look exactly as before. */
+
+.ob-modal {
+  display: flex;
+  max-height: calc(100dvh - 40px);
+  flex-direction: column;
+}
+
+.ob-modal__head,
+.ob-modal__foot {
+  flex: none;
+}
+
+.ob-modal__body {
+  overflow-y: auto;
+}
+
+/* Three tabs with long labels overflowed the row and pushed the whole page
+   sideways on a phone. */
+.admin-tabs {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+  .ob-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .ob-toolbar__title-wrap {
+    min-width: 0;
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .ob-toolbar__actions {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+  }
+
+  .admin-tabs button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 620px) {
+  /* Two up reads better than one tall column of four. */
+  .admin-hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-hero__tile {
+    padding: 14px 15px;
+  }
+
+  /* minmax(320px, …) stayed 320px wide on a 320px phone and overflowed. */
+  .admin-charts,
+  .admin-feeds {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-detail__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-list li {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-list__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-form__row {
+    flex-wrap: wrap;
+  }
+
+  .admin-form__generate {
+    padding: 10px 14px;
+    width: 100%;
+  }
+}

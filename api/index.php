@@ -52,6 +52,9 @@ try {
         if ($action === 'signout' && $method === 'POST') {
             json_response(signout_user());
         }
+        if ($action === 'change-password' && $method === 'POST') {
+            json_response(change_password(request_json()));
+        }
         if ($action === 'password-reset' && $method === 'POST') {
             json_response(request_password_reset(request_json()));
         }
@@ -84,6 +87,9 @@ try {
                     admin_query_string('search'),
                     admin_row_limit($_GET['limit'] ?? null),
                 ));
+            }
+            if ($targetId === null && $method === 'POST') {
+                json_response(admin_create_user(request_json()), 201);
             }
             if ($targetId !== null && $method === 'GET') {
                 json_response(admin_user_detail($targetId));

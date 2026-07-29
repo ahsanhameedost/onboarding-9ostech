@@ -31,9 +31,11 @@ function isOrgEmail(email: string) {
   return email.trim().toLowerCase().endsWith(orgDomain)
 }
 
-// Administrators land on the console; everyone else on their workspace. The
-// console's toolbar links back to /workspace, so nothing becomes unreachable.
-function landingPath(user?: { is_admin?: boolean }) {
+// A temporary password has to be replaced before anything else opens.
+// Otherwise administrators land on the console and everyone else on their
+// workspace; the console's toolbar links back, so nothing becomes unreachable.
+function landingPath(user?: { is_admin?: boolean; must_change_password?: boolean }) {
+  if (user?.must_change_password) return '/change-password'
   return user?.is_admin ? '/admin' : '/workspace'
 }
 

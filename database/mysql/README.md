@@ -28,6 +28,7 @@ needs them.
 | Migration | Required for |
 | --- | --- |
 | `2026-07-28-add-user-role.sql` | Admin console. Adds `app_users.role`. |
+| `2026-07-29-add-must-change-password.sql` | Forced password change for administrator-created accounts. Adds `app_users.must_change_password`. |
 
 The admin console reads `app_users.role` on every authenticated request, so run
 this migration **before** deploying that release or every API call will fail.
