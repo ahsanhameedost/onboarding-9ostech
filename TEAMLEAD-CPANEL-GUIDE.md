@@ -5,9 +5,9 @@ This is the only production deployment guide. It applies to:
 ```text
 Repository: mateen9ostech-hash/OakBoard-Employee-Onboarding-Form
 Branch: main
-Domain: https://onboarding.9ostech.com
-Checkout: /home/ostech/public_html/onboarding.9ostech.com
-Document root: /home/ostech/public_html/onboarding.9ostech.com/dist
+Domain: https://onboardingplan.9ostech.com
+Checkout: /home/ostech/public_html/onboardingplan.9ostech.com
+Document root: /home/ostech/public_html/onboardingplan.9ostech.com/dist
 Private config: /home/ostech/oakboard-config.php
 ```
 
@@ -33,7 +33,7 @@ Recommended application values:
 
 ```php
 'app' => [
-    'url' => 'https://onboarding.9ostech.com',
+    'url' => 'https://onboardingplan.9ostech.com',
     'allowed_email_domain' => '9ostech.com',
 ],
 ```
@@ -46,7 +46,7 @@ an address authorized by that Mailgun domain.
 Run:
 
 ```bash
-cd /home/ostech/public_html/onboarding.9ostech.com
+cd /home/ostech/public_html/onboardingplan.9ostech.com
 git status --short
 git fetch origin
 git switch main
@@ -60,11 +60,11 @@ If `git switch` or `git pull` reports local changes, stop and inspect them. Do n
 run `git reset --hard`. Generated files previously copied from `dist/` can be
 backed up and removed only after confirming they are not source changes.
 
-In cPanel **Domains**, edit only `onboarding.9ostech.com` and set its document
+In cPanel **Domains**, edit only `onboardingplan.9ostech.com` and set its document
 root to:
 
 ```text
-/home/ostech/public_html/onboarding.9ostech.com/dist
+/home/ostech/public_html/onboardingplan.9ostech.com/dist
 ```
 
 Remove the obsolete Next.js reverse-proxy include for this subdomain only.
@@ -74,7 +74,7 @@ persistent Node server.
 ## 3. Every future deployment
 
 ```bash
-cd /home/ostech/public_html/onboarding.9ostech.com
+cd /home/ostech/public_html/onboardingplan.9ostech.com
 git pull --ff-only origin main
 ```
 
@@ -89,8 +89,8 @@ Do not run `cp -a dist/. .`. The subdomain serves `dist/` directly.
 ## 4. Verify after deployment
 
 ```bash
-curl -I https://onboarding.9ostech.com/sign-in
-curl -i https://onboarding.9ostech.com/api/auth/session
+curl -I https://onboardingplan.9ostech.com/sign-in
+curl -i https://onboardingplan.9ostech.com/api/auth/session
 ```
 
 Expected results:
@@ -113,7 +113,7 @@ Then test:
 
 If signup succeeds but no verification email arrives:
 
-1. Open `https://onboarding.9ostech.com/api/auth/session`.
+1. Open `https://onboardingplan.9ostech.com/api/auth/session`.
 2. If it returns HTML or 404, the `dist/api` PHP application is not being served;
    recheck the document root and rebuild.
 3. Confirm PHP cURL is enabled.
@@ -144,4 +144,4 @@ Do not restore the old Next.js proxy to fix a React/PHP deployment.
 
 Back up the currently working `dist/` before the first cutover. If acceptance
 fails, restore only that backup and the previous document root for
-`onboarding.9ostech.com`. Do not change other sites.
+`onboardingplan.9ostech.com`. Do not change other sites.

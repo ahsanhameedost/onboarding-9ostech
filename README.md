@@ -28,7 +28,7 @@ Production:
 - Apache with `.htaccess` and `mod_rewrite`.
 - PHP 8.1+ with PDO MySQL, cURL, mbstring, JSON, and OpenSSL.
 - MySQL 8.0+ or MariaDB 10.6+ with InnoDB and `utf8mb4`.
-- HTTPS for `onboarding.9ostech.com`.
+- HTTPS for `onboardingplan.9ostech.com`.
 
 ## New computer setup
 

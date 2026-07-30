@@ -56,7 +56,7 @@ can also be created from the contents of `dist/`.
    Recommended `app` values:
    ```php
    'app' => [
-       'url' => 'https://onboarding.9ostech.com',
+       'url' => 'https://onboardingplan.9ostech.com',
        'allowed_email_domain' => '9ostech.com',
        // Bootstrap super administrator for the admin console. This account can
        // never be locked, demoted, or deleted from the UI, so admin access
@@ -72,7 +72,7 @@ can also be created from the contents of `dist/`.
 ## C. Upload the built files
 
 1. cPanel → **File Manager** → open the subdomain's **document root**
-   (e.g. `.../onboarding.9ostech.com`).
+   (e.g. `.../onboardingplan.9ostech.com`).
 2. File Manager → **Settings** → tick **Show Hidden Files (dotfiles)** so
    `.htaccess` is visible.
 3. Upload `oakboard-dist-upload.zip` here and **Extract** it.
@@ -85,8 +85,8 @@ can also be created from the contents of `dist/`.
 ## D. Verify
 
 ```bash
-curl -I  https://onboarding.9ostech.com/sign-in
-curl -i  https://onboarding.9ostech.com/api/auth/session
+curl -I  https://onboardingplan.9ostech.com/sign-in
+curl -i  https://onboardingplan.9ostech.com/api/auth/session
 ```
 
 Expected:

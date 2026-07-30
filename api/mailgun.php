@@ -71,7 +71,7 @@ function mailgun_logo_url(): string
     $host = mb_strtolower((string) parse_url($appUrl, PHP_URL_HOST));
 
     if ($appUrl === '' || in_array($host, ['127.0.0.1', 'localhost'], true)) {
-        $appUrl = 'https://onboarding.9ostech.com';
+        $appUrl = 'https://onboardingplan.9ostech.com';
     }
 
     return $appUrl . '/oakboard-email-logo.png';
