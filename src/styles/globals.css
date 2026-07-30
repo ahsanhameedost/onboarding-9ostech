@@ -4181,6 +4181,7 @@ vwc-button.vivid-create-button:hover {
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
+  flex-shrink: 0;
   border-bottom: 1px solid #e5ebe6;
   background: white;
   padding: 19px 24px 17px;
@@ -4241,6 +4242,7 @@ vwc-button.vivid-create-button:hover {
 }
 
 .plan-progress {
+  flex-shrink: 0;
   border-bottom: 1px solid #e5ebe6;
   background: white;
   padding: 13px 24px 14px;
@@ -4426,12 +4428,17 @@ vwc-button.vivid-create-button:hover {
   min-height: 230px;
 }
 
+/* flex-shrink: 0 is load-bearing: min-height cancels the automatic minimum
+   size of a flex item, so without it this footer was squeezed to 68px inside
+   the overflow:hidden wizard and the submit button was clipped out of sight
+   whenever the row wrapped on a phone. */
 .plan-wizard-actions {
   display: flex;
   min-height: 68px;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
   border-top: 1px solid #e0e7e2;
   background: white;
   padding: 12px 24px;
@@ -4710,11 +4717,21 @@ vwc-button.vivid-create-button:hover {
 
   .plan-wizard-actions {
     flex-wrap: wrap;
+    /* Clears the iOS home indicator so the submit row stays tappable. */
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
   .plan-wizard-tools {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .dur-row {
+    flex-wrap: wrap;
+  }
+
+  .dur-opt {
+    flex: 1 1 100%;
   }
 
   .r2,

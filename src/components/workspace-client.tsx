@@ -1,7 +1,7 @@
 'use client'
 
 import Image from './app-image'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import oakboardLogo from '@/assets/oakboard-logo.svg'
 import { Button, Icon } from '@/components/ui'
 import { VividButton } from '@/components/vivid'
@@ -394,7 +394,10 @@ export default function WorkspaceClient({
   const [historyStatus, setHistoryStatus] = useState('')
   const [wizardOpen, setWizardOpen] = useState(initialView === 'new' || editingOnLoad)
   const [creationMode, setCreationMode] = useState<CreationMode | null>(editingOnLoad ? 'manual' : null)
-  const [wizardStep, setWizardStep] = useState(editingOnLoad ? 1 : 0)
+  // Editing opens straight on Weeks & Days, the step that carries the save
+  // button. Landing on Duration made the plan look unsaveable until the person
+  // guessed that Next twice was required.
+  const [wizardStep, setWizardStep] = useState(editingOnLoad ? 3 : 0)
   const [durationChosen, setDurationChosen] = useState(editingOnLoad)
   const [isGenerating, setIsGenerating] = useState(false)
   const [openPlanMenuId, setOpenPlanMenuId] = useState<string | null>(null)
@@ -402,6 +405,14 @@ export default function WorkspaceClient({
   const [planActionBusy, setPlanActionBusy] = useState(false)
   const [displayName, setDisplayName] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
+  const wizardErrorRef = useRef<HTMLDivElement | null>(null)
+
+  // The wizard body scrolls, so a validation message can land off-screen on a
+  // phone. Bring it into view whenever it changes.
+  useEffect(() => {
+    if (!error) return
+    wizardErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [error])
 
   useEffect(() => {
     let active = true
@@ -474,11 +485,17 @@ export default function WorkspaceClient({
     }
   }, [creationMode, durationChosen, nWeeks, role, startDate, weeks])
 
-  const wizardSteps = creationMode === 'import'
-    ? ['Method', 'Import Data', 'Review & Generate']
-    : ['Method', 'Duration', 'Role Information', 'Weeks & Days']
+  // Editing has no Method step: the plan already exists, so the progress rail
+  // starts at Duration and step numbers shift by one.
+  const wizardSteps = editingOnLoad
+    ? ['Duration', 'Role Information', 'Weeks & Days']
+    : creationMode === 'import'
+      ? ['Method', 'Import Data', 'Review & Generate']
+      : ['Method', 'Duration', 'Role Information', 'Weeks & Days']
 
-  const activeWizardStep = creationMode === 'import' && wizardStep === 3 ? 2 : wizardStep
+  const activeWizardStep = editingOnLoad
+    ? Math.max(0, wizardStep - 1)
+    : creationMode === 'import' && wizardStep === 3 ? 2 : wizardStep
 
   function setDuration(next: 2 | 4) {
     setDurationChosen(true)
@@ -561,6 +578,20 @@ export default function WorkspaceClient({
   }
 
   function resetAll() {
+    // While editing, "Clear" blanking a real saved plan is never what the
+    // person means, so it reverts the form to the stored version instead.
+    if (editingOnLoad && initialPlanData) {
+      setRole(initialPlanData.role || '')
+      setStartDate(initialPlanData.startDate || nextWeekdayIso())
+      setReports(initialPlanData.reportsTo || initialPlanData.reports || '')
+      setCollab(initialPlanData.collaboratesWith || initialPlanData.collab || '')
+      setNWeeks(initialWeekCount)
+      setWeeks(restorePlanWeeks(initialPlanData, initialWeekCount))
+      setError('')
+      setNotice('Reverted to the saved plan.')
+      return
+    }
+
     setRole('')
     setReports('')
     setCollab('')
@@ -586,6 +617,11 @@ export default function WorkspaceClient({
     setWizardOpen(false)
     setError('')
     setImportStatus(null)
+    // Cancelling an edit returns to the plan being edited, not the workspace.
+    if (editingPlanId) {
+      router.push(`/plans/${encodeURIComponent(editingPlanId)}`)
+      return
+    }
     if (initialView !== 'workspace') router.push('/workspace')
   }
 
@@ -737,12 +773,19 @@ export default function WorkspaceClient({
     event.preventDefault()
     const plan = collect()
     if (!plan.role) {
+      // Send the person to the step that owns the field, otherwise the message
+      // points at something they cannot see. The import flow has no role step,
+      // so it stays where it is.
+      if (creationMode === 'manual') setWizardStep(2)
       setError('Please enter the Job Title / Role.')
       return
     }
     const missing = plan.weeks?.flatMap((week) => week.days).find((day) => !day.title)
     if (missing) {
-      setError(`Please fill in the title for Day ${missing.g || missing.day}.`)
+      const missingDay = missing.g || missing.day || 1
+      setOpenWeeks((current) => new Set(current).add(Math.floor((missingDay - 1) / DPW)))
+      setOpenDays((current) => new Set(current).add(missingDay))
+      setError(`Please fill in the title for Day ${missingDay}.`)
       return
     }
 
@@ -965,10 +1008,10 @@ export default function WorkspaceClient({
             <form className="fo plan-wizard" onSubmit={handleSubmit}>
               <div className="plan-wizard-head">
                 <div>
-                  <span className="plan-wizard-eyebrow">Create onboarding plan</span>
+                  <span className="plan-wizard-eyebrow">{editingOnLoad ? `Edit onboarding plan${role ? ` — ${role}` : ''}` : 'Create onboarding plan'}</span>
                   <h2>{wizardStep === 0 ? 'How would you like to start?' : wizardSteps[activeWizardStep]}</h2>
                 </div>
-                <button aria-label="Close plan builder" className="plan-wizard-close" onClick={closeWizard} type="button"><Icon name="close" /></button>
+                <button aria-label={editingOnLoad ? 'Close plan editor' : 'Close plan builder'} className="plan-wizard-close" onClick={closeWizard} type="button"><Icon name="close" /></button>
               </div>
 
               <div className="plan-progress" aria-label={`Plan ${completion.percent}% complete`}>
@@ -1123,7 +1166,7 @@ export default function WorkspaceClient({
 
                 )}
 
-                {error && <div className="err on">{error}</div>}
+                {error && <div className="err on" ref={wizardErrorRef} role="alert">{error}</div>}
                 {!error && notice && <p className="plan-editor-note">{notice}</p>}
               </div>
 
@@ -1132,7 +1175,9 @@ export default function WorkspaceClient({
 
                 {creationMode === 'manual' && wizardStep === 1 && (
                   <>
-                    <Button onClick={() => { setCreationMode(null); setWizardStep(0); setError('') }} type="button" variant="secondary">Back</Button>
+                    {editingOnLoad
+                      ? <Button onClick={closeWizard} type="button" variant="secondary">Cancel</Button>
+                      : <Button onClick={() => { setCreationMode(null); setWizardStep(0); setError('') }} type="button" variant="secondary">Back</Button>}
                     <Button onClick={goToRoleStep} type="button" variant="primary">Next</Button>
                   </>
                 )}
@@ -1155,11 +1200,13 @@ export default function WorkspaceClient({
                   <>
                     <div className="plan-wizard-tools">
                       <Button onClick={() => { setWizardStep(creationMode === 'import' ? 1 : 2); setNotice(''); setError('') }} type="button" variant="secondary">Back</Button>
-                      {creationMode === 'manual' && <Button icon="check" onClick={fillDemoData} type="button" variant="soft">Fill Sample</Button>}
-                      <Button onClick={resetAll} type="button" variant="secondary">Clear</Button>
+                      {creationMode === 'manual' && !editingOnLoad && <Button icon="check" onClick={fillDemoData} type="button" variant="soft">Fill Sample</Button>}
+                      <Button onClick={resetAll} type="button" variant="secondary">{editingOnLoad ? 'Revert' : 'Clear'}</Button>
                     </div>
-                    <Button disabled={isGenerating} icon="plus" type="submit" variant="primary">
-                      {isGenerating ? 'Generating…' : 'Generate Plan'}
+                    <Button disabled={isGenerating} icon={editingOnLoad ? 'check' : 'plus'} type="submit" variant="primary">
+                      {editingOnLoad
+                        ? (isGenerating ? 'Saving…' : 'Save Changes')
+                        : (isGenerating ? 'Generating…' : 'Generate Plan')}
                     </Button>
                   </>
                 )}
