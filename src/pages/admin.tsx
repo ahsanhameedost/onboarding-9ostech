@@ -593,7 +593,7 @@ export default function AdminPage() {
                     <li key={`${entry.email}-${entry.at}-${index}`}>
                       <div className="admin-feed__who">
                         <span className="admin-avatar" aria-hidden="true">{initials(entry.fullName, entry.email)}</span>
-                        <div>
+                        <div className="admin-list__text">
                           <strong>{entry.fullName || entry.email}</strong>
                           <span>{entry.email}</span>
                         </div>
@@ -612,7 +612,7 @@ export default function AdminPage() {
                     <li key={entry.id}>
                       <div className="admin-feed__who">
                         <span className="admin-avatar" aria-hidden="true">{initials(entry.fullName, entry.email)}</span>
-                        <div>
+                        <div className="admin-list__text">
                           <strong>{entry.role}</strong>
                           <span>{entry.nWeeks} weeks · {entry.fullName || entry.email}</span>
                         </div>
@@ -788,7 +788,7 @@ export default function AdminPage() {
               <ul className="admin-list">
                 {detail.plans.map((plan) => (
                   <li key={plan.id}>
-                    <div>
+                    <div className="admin-list__text">
                       <strong>{plan.role}</strong>
                       <span>{plan.nWeeks} weeks · updated {formatDateTime(plan.updatedAt)}</span>
                     </div>
@@ -809,7 +809,7 @@ export default function AdminPage() {
               <ul className="admin-list">
                 {detail.sessions.map((session) => (
                   <li key={session.id}>
-                    <div>
+                    <div className="admin-list__text">
                       <strong>{formatDateTime(session.createdAt)}</strong>
                       <span>Last active {formatDateTime(session.lastSeenAt)}</span>
                     </div>
@@ -827,7 +827,7 @@ export default function AdminPage() {
               <ul className="admin-list">
                 {detail.emails.map((log) => (
                   <li key={log.id}>
-                    <div>
+                    <div className="admin-list__text">
                       <strong>{log.recipient}</strong>
                       <span>{formatDateTime(log.createdAt)}{log.error ? ` · ${log.error}` : ''}</span>
                     </div>
@@ -868,7 +868,7 @@ export default function AdminPage() {
                 <ul className="admin-list admin-list--compact">
                   {(week.days || []).map((day, dayIndex) => (
                     <li key={dayIndex}>
-                      <div>
+                      <div className="admin-list__text">
                         <strong>Day {day.g || day.day || dayIndex + 1}</strong>
                         <span>{day.title || '—'}</span>
                       </div>

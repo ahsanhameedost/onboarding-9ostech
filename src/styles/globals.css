@@ -6426,19 +6426,33 @@ input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
   padding: 10px 13px;
 }
 
-.admin-list li > div {
+/* The two-line label column of a list row. This is a class rather than
+   `.admin-list li > div` / `.admin-list span`, because those also matched the
+   avatar, the timestamp, the action row, and the status badges, and at one
+   class plus one element they outranked every component rule those elements
+   carry. The avatar lost its centring, the action row stacked, and badges lost
+   their colour. */
+.admin-list__text {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.admin-list strong {
+.admin-list__text strong,
+.admin-list__text span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-list__text strong {
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
 }
 
-.admin-list span {
+.admin-list__text span {
   color: var(--muted);
   font-size: 12px;
 }
@@ -6722,20 +6736,6 @@ input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
   .admin-chart__plot {
     height: 60px;
   }
-}
-
-/* Long names and emails must truncate rather than push the timestamp out of
-   the row, so the feed keeps a single-line rhythm at every width. */
-.admin-feed__who > div {
-  min-width: 0;
-}
-
-.admin-feed__who strong,
-.admin-feed__who span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Admin console — add-user form */
