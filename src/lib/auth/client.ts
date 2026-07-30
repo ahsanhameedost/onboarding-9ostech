@@ -62,11 +62,16 @@ async function authRequest<T>(path: string, init: RequestInit = {}): Promise<Aut
     })
     const payload = await response.json().catch(() => null) as (T & { error?: string; code?: string }) | null
     if (!response.ok) {
+      // A body without an error field means the response never came from the
+      // PHP API — a stale cached app shell, a half-finished upload, or a proxy
+      // error page. Name the status instead of blaming the account, otherwise
+      // the failure is indistinguishable from a wrong password.
       return {
         data: null,
         error: {
-          code: payload?.code,
-          message: payload?.error || 'OakBoard could not complete this account request.',
+          code: payload?.code || 'api_unreachable',
+          message: payload?.error
+            || `OakBoard could not reach its server (HTTP ${response.status}). Reload the page, and if this keeps happening the site needs to be redeployed.`,
           status: response.status,
         },
       }

@@ -2,6 +2,28 @@ Options -Indexes
 DirectoryIndex index.html
 RewriteEngine On
 
+<IfModule mod_setenvif.c>
+  SetEnvIf Request_URI "^/assets/" OAKBOARD_IMMUTABLE=1
+  SetEnvIf Request_URI "^/api(/|$)" OAKBOARD_NO_STORE=1
+</IfModule>
+
+<IfModule mod_headers.c>
+  # index.html names fingerprinted bundles, so a cached copy makes a browser
+  # load assets from a build that is no longer deployed. Never store it.
+  <FilesMatch "^index\.html$">
+    Header always set Cache-Control "no-store, must-revalidate"
+  </FilesMatch>
+
+  # Everything under /assets carries a content hash in its filename, so the same
+  # URL never changes content and can be cached indefinitely.
+  Header always set Cache-Control "public, max-age=31536000, immutable" env=OAKBOARD_IMMUTABLE
+
+  # index.php already sends no-store, but an Apache-level error page for /api
+  # (a half-finished upload, a missing file) would not. A cached API error keeps
+  # failing long after the server is healthy again, so cover the whole prefix.
+  Header always set Cache-Control "no-store" env=OAKBOARD_NO_STORE
+</IfModule>
+
 # Route every /api request straight to the PHP front controller.
 # Do NOT rely on the nested api/.htaccess for this: on many cPanel setups that
 # hidden file is not uploaded, or AllowOverride is not applied to the api/
