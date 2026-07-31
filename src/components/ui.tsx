@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 import oakboardLogo from '@/assets/oakboard-logo.svg'
 import Image from './app-image'
@@ -23,7 +24,9 @@ type IconName =
   | 'pencil'
   | 'plus'
   | 'print'
+  | 'sign-out'
   | 'trash'
+  | 'user'
   | 'warning'
 
 type ButtonVariant = 'primary' | 'secondary' | 'soft' | 'ghost' | 'danger'
@@ -86,8 +89,12 @@ export function Icon({ name, className = '' }: { name: IconName; className?: str
       return <svg {...common} strokeWidth="1.7"><path d="M8 3v10M3 8h10" /></svg>
     case 'print':
       return <svg {...common} strokeWidth="1.6"><path d="M4 6V2h8v4" /><path d="M4 12H2.8A1.8 1.8 0 0 1 1 10.2V7.8A1.8 1.8 0 0 1 2.8 6h10.4A1.8 1.8 0 0 1 15 7.8v2.4a1.8 1.8 0 0 1-1.8 1.8H12" /><path d="M4 10h8v4H4z" /></svg>
+    case 'sign-out':
+      return <svg {...common} strokeWidth="1.6"><path d="M6.2 14H3.5A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2h2.7" /><path d="m10.5 11 3-3-3-3" /><path d="M13.5 8H6" /></svg>
     case 'trash':
       return <svg {...common} strokeWidth="1.5"><path d="M3.2 4.5h9.6M6 4.5V2.7h4v1.8M4.3 4.5l.6 9h6.2l.6-9M6.7 7v3.8M9.3 7v3.8" /></svg>
+    case 'user':
+      return <svg {...common} strokeWidth="1.6"><circle cx="8" cy="5.6" r="2.6" /><path d="M2.9 13.4a5.1 5.1 0 0 1 10.2 0" /></svg>
     case 'warning':
       return <svg {...common} strokeWidth="1.7"><path d="M8 2.4 14 13H2L8 2.4Z" /><path d="M8 6.2v3.1M8 11.2h.01" /></svg>
   }
@@ -253,6 +260,92 @@ export function TextField({
       <span>{label}</span>
       {multiline ? <textarea {...props} /> : <input {...props} />}
     </label>
+  )
+}
+
+/**
+ * Signed-in identity plus the two actions that belong to it. The admin console
+ * previously had no sign-out at all — the only one in the product lives in the
+ * workspace sidebar, which is collapsed by default and shows that action as a
+ * bare icon, so from the console the way out of the account was to guess at the
+ * URL. Placing it here means every page that carries a toolbar also carries a
+ * visible way to leave.
+ */
+export function AccountMenu({
+  email,
+  fullName,
+  onSignOut,
+  role,
+}: {
+  email: string
+  fullName?: string
+  onSignOut: () => void
+  role?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const displayName = fullName?.trim() || email.split('@')[0] || 'Account'
+  const initials = (() => {
+    const parts = displayName.split(/[\s._-]+/).filter(Boolean)
+    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?'
+  })()
+
+  // A pointer-down listener rather than a click listener: a click that lands on
+  // another button would otherwise fire that button and close the menu in the
+  // same tick, and the ordering between the two is not guaranteed.
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
+  return (
+    <div className="ob-account" ref={containerRef}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="ob-account__trigger"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <span aria-hidden="true" className="ob-account__avatar">{initials}</span>
+        <span className="ob-account__name">{displayName}</span>
+        <Icon name="chevron-down" />
+      </button>
+
+      {open && (
+        <div className="ob-account__menu" role="menu">
+          <div className="ob-account__identity">
+            <strong>{displayName}</strong>
+            <span>{email}</span>
+            {role && <span className="ob-account__role">{role}</span>}
+          </div>
+          {/* No "Change password" entry here on purpose: /change-password is
+              the forced first-password screen and redirects away again unless
+              must_change_password is set, so it would be a link that bounces
+              straight back to the page it was opened from. */}
+          <button
+            className="ob-account__item ob-account__item--danger"
+            onClick={() => { setOpen(false); onSignOut() }}
+            role="menuitem"
+            type="button"
+          >
+            <Icon name="sign-out" />
+            <span>Sign out</span>
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 

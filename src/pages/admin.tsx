@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Button, Icon, Modal, PageToolbar, StatusBanner } from '@/components/ui'
+import { AccountMenu, Button, Icon, Modal, PageToolbar, StatusBanner } from '@/components/ui'
 import { apiFetch } from '@/lib/api/client'
-import { getValidSession } from '@/lib/auth/client'
+import { getValidSession, signOut } from '@/lib/auth/client'
 import { useAppRouter } from '@/lib/router'
 
 type AdminUser = {
@@ -234,6 +234,7 @@ export default function AdminPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState({ full_name: '', email: '', password: '', role: 'member' })
   const [createError, setCreateError] = useState('')
+  const [account, setAccount] = useState<{ email: string; fullName: string } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -243,6 +244,10 @@ export default function AdminPage() {
         router.replace('/sign-in')
         return
       }
+      setAccount({
+        email: result.session.user.email || '',
+        fullName: result.session.user.user_metadata?.full_name || '',
+      })
       setAccess(result.session.user.is_admin ? 'granted' : 'denied')
     })
     return () => { active = false }
@@ -438,6 +443,11 @@ export default function AdminPage() {
     if (detail) await openUserDetail(detail.user.id)
   }
 
+  async function handleSignOut() {
+    await signOut()
+    router.replace('/sign-in')
+  }
+
   async function openPlanPreview(planId: string) {
     setError('')
     const response = await apiFetch(`/api/admin/plans/${encodeURIComponent(planId)}`, { cache: 'no-store' })
@@ -464,8 +474,16 @@ export default function AdminPage() {
         <div className="admin-denied__card">
           <div className="admin-denied__icon" aria-hidden="true"><Icon name="warning" /></div>
           <h1>Administrator access required</h1>
-          <p>This account is not an OakBoard administrator. Ask a super administrator to grant access.</p>
-          <Button icon="arrow-left" to="/workspace" variant="primary">Back to workspace</Button>
+          <p>
+            {account?.email ? <><strong>{account.email}</strong> is not an OakBoard administrator.</> : 'This account is not an OakBoard administrator.'}
+            {' '}Ask a super administrator to grant access.
+          </p>
+          <div className="admin-denied__actions">
+            <Button icon="arrow-left" to="/workspace" variant="primary">Back to workspace</Button>
+            {/* Landing here signed in as the wrong account is the common case,
+                so the fix for it has to be reachable from the page itself. */}
+            <Button icon="sign-out" onClick={() => void handleSignOut()} type="button" variant="secondary">Sign out</Button>
+          </div>
         </div>
       </main>
     )
@@ -482,6 +500,14 @@ export default function AdminPage() {
           <>
             <Button icon="plus" onClick={openCreateUser} type="button" variant="primary">Add user</Button>
             <Button icon="check" onClick={() => void refreshAll()} type="button" variant="secondary">Refresh</Button>
+            {account && (
+              <AccountMenu
+                email={account.email}
+                fullName={account.fullName}
+                onSignOut={() => void handleSignOut()}
+                role="Administrator"
+              />
+            )}
           </>
         )}
       />
@@ -501,22 +527,6 @@ export default function AdminPage() {
               <span className="admin-hero__value">{overview ? overview[key] ?? 0 : '—'}</span>
               <span className="admin-hero__label">{label}</span>
               <span className="admin-hero__sub">{overview ? overview[subKey] ?? 0 : '—'} {subLabel}</span>
-            </article>
-          ))}
-        </section>
-
-        <section className="admin-stats" aria-label="OakBoard summary">
-          {STAT_GROUPS.map((group) => (
-            <article className="admin-stat-group" key={group.heading}>
-              <h2>{group.heading}</h2>
-              <div className="admin-stat-grid">
-                {group.items.map(([key, label]) => (
-                  <div className="admin-stat" key={key}>
-                    <span className="admin-stat__value">{overview ? overview[key] ?? 0 : '—'}</span>
-                    <span className="admin-stat__label">{label}</span>
-                  </div>
-                ))}
-              </div>
             </article>
           ))}
         </section>
@@ -572,6 +582,25 @@ export default function AdminPage() {
 
         {tab === 'overview' && (
           <>
+            {/* The detailed breakdown belongs to Overview. It used to render
+                above the tab bar on every tab, so reaching the user table meant
+                scrolling past eighteen numbers that had nothing to do with it. */}
+            <section className="admin-stats" aria-label="OakBoard summary">
+              {STAT_GROUPS.map((group) => (
+                <article className="admin-stat-group" key={group.heading}>
+                  <h2>{group.heading}</h2>
+                  <div className="admin-stat-grid">
+                    {group.items.map(([key, label]) => (
+                      <div className="admin-stat" key={key}>
+                        <span className="admin-stat__value">{overview ? overview[key] ?? 0 : '—'}</span>
+                        <span className="admin-stat__label">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </section>
+
             <section className="admin-charts" aria-label="Activity over the last 14 days">
               {daily.length > 0 ? (
                 <>

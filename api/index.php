@@ -169,6 +169,7 @@ try {
                 'text' => $text,
                 'html' => email_shell('Your onboarding plan is ready', '<p style="margin:0;font-size:15px;line-height:1.7;color:#45534a;">' . $safeText . '</p>'),
                 'attachment' => $attachment,
+                'tag' => 'onboarding-plan',
             ]);
             database()->prepare(
                 'INSERT INTO onboarding_email_logs

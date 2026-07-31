@@ -824,6 +824,14 @@ export default function LoginPage() {
                 <br />
                 <strong>{pendingEmail || 'your email'}</strong>
               </div>
+              {/* Delivery to the work domain can lag by a minute or two. Without
+                  this note the wait reads as a failure, and people request code
+                  after code — each one invalidating the last, so the code that
+                  finally arrives is the one that no longer works. */}
+              <p className="pending-hint">
+                Delivery usually takes a few seconds but can take up to a minute or two.
+                Check your spam or junk folder before requesting a new code — the code stays valid for 30 minutes.
+              </p>
 
               <div className="fld otp-field">
                 <label htmlFor="signup-code">Verification code</label>

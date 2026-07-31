@@ -135,6 +135,38 @@ function mailgun_send(array $message): array
         $fields['h:Reply-To'] = $replyTo;
     }
 
+    // Delivery options.
+    //
+    // Tracking is the important one. With open or click tracking enabled
+    // Mailgun rewrites every link in the message through its own tracking host
+    // and appends a pixel, so the mail a recipient receives is not the mail
+    // OakBoard wrote. Google and Microsoft treat a redirect host that is not
+    // covered by the sending domain's authentication as a reason to greylist,
+    // and a greylisted message is retried minutes later rather than rejected.
+    // That is the usual explanation for a six-digit code that turns up long
+    // after it was requested. OakBoard needs no engagement analytics on a
+    // verification code, so tracking stays off and the message goes out as
+    // written.
+    $fields['o:tracking'] = 'no';
+    $fields['o:tracking-clicks'] = 'no';
+    $fields['o:tracking-opens'] = 'no';
+    // Explicit rather than assumed. DKIM off, or test mode left on from a
+    // debugging session, both look identical from the application side: the
+    // API returns success and the mail never arrives.
+    $fields['o:dkim'] = 'yes';
+    $fields['o:testmode'] = 'no';
+    // Tags separate verification, reset, and plan mail in the Mailgun logs, so
+    // a future delivery complaint can be traced to one message type instead of
+    // being read off an undifferentiated stream.
+    $tag = preg_replace('/[^a-z0-9-]/', '', mb_strtolower(trim((string) ($message['tag'] ?? ''))));
+    if (is_string($tag) && $tag !== '') {
+        $fields['o:tag'] = mb_substr($tag, 0, 128);
+    }
+    // Gmail collapses messages that share a subject into one thread, which
+    // hides a fresh code underneath the previous one and reads as the new mail
+    // never arriving. A unique reference per message keeps them separate.
+    $fields['h:X-Entity-Ref-ID'] = bin2hex(random_bytes(16));
+
     $temporaryAttachment = null;
     $attachment = $message['attachment'] ?? null;
     if (is_array($attachment)) {
@@ -169,18 +201,26 @@ function mailgun_send(array $message): array
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => 30,
         CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+        // Shared cPanel hosts routinely advertise IPv6 without routing it. cURL
+        // then spends its connect budget on an AAAA address that never answers
+        // before falling back to IPv4, which adds seconds to every send and, on
+        // a slow request, can burn the timeout entirely. OakBoard only needs one
+        // working path to the API, so ask for the one the host actually has.
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+        CURLOPT_HTTPHEADER => ['Accept: application/json', 'Expect:'],
     ]);
+    $sendStartedAt = microtime(true);
     $response = curl_exec($curl);
     $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
     $curlError = curl_error($curl);
     curl_close($curl);
+    $sendSeconds = round(microtime(true) - $sendStartedAt, 2);
     if ($temporaryAttachment !== null) {
         @unlink($temporaryAttachment);
     }
 
     if ($response === false) {
-        error_log('OakBoard Mailgun transport failure: ' . $curlError);
+        error_log('OakBoard Mailgun transport failure after ' . $sendSeconds . 's: ' . $curlError);
         throw new RuntimeException('Email delivery service is temporarily unavailable.');
     }
 
@@ -191,6 +231,13 @@ function mailgun_send(array $message): array
             : 'HTTP ' . $status;
         error_log('OakBoard Mailgun rejection: ' . mb_substr($providerMessage, 0, 500));
         throw new RuntimeException('Mailgun rejected the email request. Check domain verification and sender settings.');
+    }
+
+    // Mailgun normally accepts a message in well under a second. Anything
+    // slower is the handoff, not the mailbox provider, and it is worth being
+    // able to tell those two apart when someone reports a late email.
+    if ($sendSeconds >= 3.0) {
+        error_log('OakBoard Mailgun handoff was slow: ' . $sendSeconds . 's for ' . ($fields['o:tag'] ?? 'untagged'));
     }
 
     return [
@@ -207,14 +254,18 @@ function send_verification_email(string $email, string $code): array
         . '<div style="margin:22px 0;padding:20px;border:1px solid #9fd2ad;border-radius:12px;background:#eefaf1;text-align:center;'
         . 'font-family:Consolas,monospace;font-size:34px;font-weight:700;letter-spacing:9px;color:#176b31;">'
         . $safeCode . '</div>'
-        . '<p style="margin:0;font-size:13px;line-height:1.6;color:#6a776e;">The code expires in 10 minutes. '
+        // The token lifetime is OAKBOARD_OTP_SECONDS, which is 30 minutes. The
+        // copy said 10, so anyone whose mail arrived a few minutes late read a
+        // code that was still perfectly valid as one that had already expired.
+        . '<p style="margin:0;font-size:13px;line-height:1.6;color:#6a776e;">The code expires in 30 minutes. '
         . 'If you did not request this account, you can safely ignore this email.</p>';
 
     return mailgun_send([
         'to' => $email,
-        'subject' => 'Verify your OakBoard account',
-        'text' => "Your OakBoard verification code is {$code}. It expires in 10 minutes.",
+        'subject' => 'OakBoard verification code ' . $code,
+        'text' => "Your OakBoard verification code is {$code}. It expires in 30 minutes.",
         'html' => email_shell('Verify your work email', $content),
+        'tag' => 'verification',
     ]);
 }
 
@@ -234,5 +285,6 @@ function send_password_reset_email(string $email, string $resetUrl): array
         'subject' => 'Reset your OakBoard password',
         'text' => "Reset your OakBoard password using this link (valid for 30 minutes): {$resetUrl}",
         'html' => email_shell('Reset your password', $content),
+        'tag' => 'password-reset',
     ]);
 }
