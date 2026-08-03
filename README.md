@@ -47,7 +47,6 @@ contain browser-public overrides only:
 
 ```env
 VITE_API_BASE_URL=/api
-VITE_SITE_URL=http://127.0.0.1:3000
 ```
 
 Never place MySQL, Mailgun, session, or SMTP secrets in a Vite environment file.

@@ -1,13 +1,4 @@
-import type { PageMetadata as Metadata } from '@/types/metadata'
 import { PublicInfoShell } from '@/components/public-info-shell'
-
-export const metadata: Metadata = {
-  title: 'Terms of Service',
-  description: 'Terms governing authorized use of the OakBoard employee onboarding plan application.',
-  alternates: {
-    canonical: '/terms-of-service',
-  },
-}
 
 const sections = [
   ['Authorized use', 'OakBoard is provided for approved Oak Street Technologies business users. You must use your own authorized account and keep account credentials confidential.'],

@@ -1,15 +1,6 @@
 import Link from '@/components/app-link'
-import type { PageMetadata as Metadata } from '@/types/metadata'
 import { PublicInfoShell } from '@/components/public-info-shell'
 import { Icon } from '@/components/ui'
-
-export const metadata: Metadata = {
-  title: 'Employee Onboarding Plan Builder',
-  description: 'Create structured 2-week and 4-week employee onboarding plans, manage role-specific activities, and export polished PDFs with OakBoard.',
-  alternates: {
-    canonical: '/',
-  },
-}
 
 const features = [
   ['01', 'Guided plan creation', 'Build role-specific onboarding plans through clear duration, role, week, and daily activity steps.'],
