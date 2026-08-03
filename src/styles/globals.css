@@ -5989,3 +5989,375 @@ input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
     width: 100%;
   }
 }
+
+/* Admin console on the workspace shell
+   -------------------------------------------------------------------------
+   The console used to be the one screen with a light page and a top toolbar,
+   which made it read as a separate product. It now renders inside .form-page /
+   .recent-sidebar / .fill-shell, the same shell the workspace uses, so the two
+   stay in step by sharing classes rather than by copied values.
+
+   Everything below only re-skins the console's own surfaces for the dark
+   canvas. It is scoped to .admin-shell so no other page is affected, and it is
+   last in the file so it wins over the light defaults above without needing
+   !important.
+
+   Surfaces reuse the glass treatment from .plan-home-card. Headings sit at
+   #f2f7f3 and support copy at #a9bcaf, both clear of 4.5:1 against the
+   gradient; figures use --green-accent, which reads on dark where the light
+   theme's --green-dark would not. */
+
+.admin-shell .fill-shell {
+  padding-bottom: 64px;
+}
+
+/* Sidebar navigation ----------------------------------------------------- */
+
+.admin-nav {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.admin-nav__item {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #c2d2c7;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 11px;
+  text-align: left;
+}
+
+.admin-nav__item:hover {
+  background: rgb(255 255 255 / 8%);
+  box-shadow: none;
+  color: #f2f7f3;
+  transform: none;
+}
+
+.admin-nav__item.active {
+  border-color: rgb(112 217 142 / 38%);
+  background: rgb(79 184 107 / 18%);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.admin-nav__item .ob-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.admin-nav__count {
+  margin-left: auto;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  color: #d8e7dc;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.admin-nav__item.active .admin-nav__count {
+  background: rgb(255 255 255 / 20%);
+  color: #ffffff;
+}
+
+/* Signed-in identity, above the sidebar footer actions. */
+
+.side-account {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  overflow: hidden;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  margin-bottom: 8px;
+  padding: 0 4px 10px;
+}
+
+.side-account__avatar {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgb(79 184 107 / 24%);
+  color: #d7f2e0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 30px;
+  text-align: center;
+}
+
+.side-account__text {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.side-account__text strong {
+  overflow: hidden;
+  color: #f2f7f3;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-account__text > span {
+  overflow: hidden;
+  color: #9fb0a5;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-collapsed .side-account {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar-collapsed .side-account__text,
+.sidebar-collapsed .admin-nav__count,
+.sidebar-collapsed .admin-nav__item .side-label {
+  display: none;
+}
+
+.sidebar-collapsed .admin-nav__item {
+  justify-content: center;
+  padding: 0;
+}
+
+.recent-sidebar .side-footer-item .ob-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* Page header ------------------------------------------------------------ */
+
+.admin-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  max-width: 1400px;
+  margin: 0 auto 22px;
+}
+
+.admin-head__copy h1 {
+  margin: 0 0 6px;
+  color: #ffffff;
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.admin-head__copy p {
+  margin: 0;
+  color: #c6d4ca;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.admin-head__copy .plan-home-kicker {
+  color: var(--green-accent);
+}
+
+.admin-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Content surfaces ------------------------------------------------------- */
+
+.admin-shell .admin-body {
+  padding: 0;
+}
+
+.admin-shell .admin-hero__tile,
+.admin-shell .admin-stat-group,
+.admin-shell .admin-chart,
+.admin-shell .admin-feed,
+.admin-shell .admin-table-wrap {
+  border: 1px solid rgb(255 255 255 / 16%);
+  background: linear-gradient(135deg, rgb(255 255 255 / 10%), rgb(255 255 255 / 5%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 12%),
+    0 18px 40px rgb(4 15 9 / 22%);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+
+.admin-shell .admin-hero__value,
+.admin-shell .admin-stat__value,
+.admin-shell .admin-chart__total {
+  color: var(--green-accent);
+}
+
+.admin-shell .admin-hero__label,
+.admin-shell .admin-stat-group h2,
+.admin-shell .admin-chart__label,
+.admin-shell .admin-feed h3,
+.admin-shell .admin-detail h4 {
+  color: #f2f7f3;
+}
+
+.admin-shell .admin-hero__sub,
+.admin-shell .admin-stat__label,
+.admin-shell .admin-chart__range,
+.admin-shell .admin-chart__axis,
+.admin-shell .admin-muted,
+.admin-shell .admin-feed__when {
+  color: #a9bcaf;
+}
+
+.admin-shell .admin-stat-group h2 {
+  border-bottom-color: rgb(255 255 255 / 12%);
+}
+
+.admin-shell .admin-chart__axis {
+  border-top-color: rgb(255 255 255 / 12%);
+}
+
+/* On the light page the bars were #237a3d; that hue disappears against the
+   gradient, so the dark shell uses the accent and a visible empty-state tint. */
+
+.admin-shell .admin-chart__bar {
+  background: var(--green-accent);
+}
+
+.admin-shell .admin-chart__bar:hover {
+  background: #74d693;
+}
+
+.admin-shell .admin-chart__bar.is-empty {
+  background: rgb(255 255 255 / 14%);
+}
+
+/* Rows and tables -------------------------------------------------------- */
+
+.admin-shell .admin-list li {
+  border-color: rgb(255 255 255 / 12%);
+  background: rgb(255 255 255 / 6%);
+}
+
+.admin-shell .admin-list__text strong {
+  color: #f2f7f3;
+}
+
+.admin-shell .admin-list__text span {
+  color: #a9bcaf;
+}
+
+.admin-shell .admin-list__actions button {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 8%);
+  color: #dcebe1;
+}
+
+.admin-shell .admin-list__actions button:hover {
+  border-color: rgb(112 217 142 / 45%);
+  background: rgb(79 184 107 / 22%);
+  color: #ffffff;
+}
+
+.admin-shell .admin-avatar {
+  background: rgb(79 184 107 / 22%);
+  color: #d7f2e0;
+}
+
+.admin-shell .admin-table th {
+  border-bottom-color: rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 5%);
+  color: #b9cbbf;
+}
+
+.admin-shell .admin-table td {
+  border-bottom-color: rgb(255 255 255 / 9%);
+  color: #dbe6de;
+}
+
+.admin-shell .admin-table tbody tr:hover {
+  background: rgb(255 255 255 / 6%);
+}
+
+.admin-shell .admin-table__empty {
+  color: #a9bcaf;
+}
+
+.admin-shell .admin-user-cell strong {
+  color: #f2f7f3;
+}
+
+.admin-shell .admin-user-cell span {
+  color: #a9bcaf;
+}
+
+/* Badges need lifting off the dark surface; the light fills go muddy. */
+
+.admin-shell .admin-badge--ok {
+  background: rgb(79 184 107 / 22%);
+  color: #adebc2;
+}
+
+.admin-shell .admin-badge--pending {
+  background: rgb(240 185 76 / 20%);
+  color: #f3d391;
+}
+
+.admin-shell .admin-badge--locked {
+  background: rgb(214 84 84 / 22%);
+  color: #f3b3b3;
+}
+
+.admin-shell .admin-badge--admin,
+.admin-shell .admin-badge--root {
+  background: rgb(120 176 255 / 20%);
+  color: #bfd8ff;
+}
+
+/* Filters ---------------------------------------------------------------- */
+
+.admin-shell .admin-filters input,
+.admin-shell .admin-filters select {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 8%);
+  color: #f2f7f3;
+}
+
+.admin-shell .admin-filters input::placeholder {
+  color: #93a698;
+}
+
+.admin-shell .admin-filters input:focus,
+.admin-shell .admin-filters select:focus {
+  border-color: rgb(112 217 142 / 55%);
+  background: rgb(255 255 255 / 12%);
+}
+
+/* The dropdown list is painted by the OS, which does not inherit the glass
+   background, so it needs a literal dark fill or it renders white-on-white. */
+
+.admin-shell .admin-filters select option {
+  background: #10291b;
+  color: #f2f7f3;
+}
+
+@media (max-width: 860px) {
+  .admin-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

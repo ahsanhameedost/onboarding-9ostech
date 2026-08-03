@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AccountMenu, Button, Icon, Modal, PageToolbar, StatusBanner } from '@/components/ui'
+import Image from '@/components/app-image'
+import oakboardLogo from '@/assets/oakboard-logo.svg'
+import { Button, Icon, Modal, StatusBanner } from '@/components/ui'
 import { apiFetch } from '@/lib/api/client'
 import { getValidSession, signOut } from '@/lib/auth/client'
 import { useAppRouter } from '@/lib/router'
@@ -235,6 +237,10 @@ export default function AdminPage() {
   const [createForm, setCreateForm] = useState({ full_name: '', email: '', password: '', role: 'member' })
   const [createError, setCreateError] = useState('')
   const [account, setAccount] = useState<{ email: string; fullName: string } | null>(null)
+  // Expanded by default, unlike the workspace: here the sidebar carries the
+  // console's primary navigation, so collapsing it by default would hide the
+  // only way to reach Users and Plans behind an icon.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -489,30 +495,140 @@ export default function AdminPage() {
     )
   }
 
+  // Defined here rather than at module scope because the counts come from state.
+  const TABS: Array<{
+    id: AdminTab
+    icon: 'info' | 'user' | 'list'
+    label: string
+    count: number | null
+    heading: string
+    blurb: string
+  }> = [
+    {
+      id: 'overview',
+      icon: 'info',
+      label: 'Overview',
+      count: null,
+      heading: 'Overview',
+      blurb: 'Accounts, plans, and sign-in activity across OakBoard.',
+    },
+    {
+      id: 'users',
+      icon: 'user',
+      label: 'Users',
+      count: users?.length ?? null,
+      heading: 'Users',
+      blurb: 'Every OakBoard account, its status, and its activity.',
+    },
+    {
+      id: 'plans',
+      icon: 'list',
+      label: 'Plans',
+      count: plans?.length ?? null,
+      heading: 'Onboarding plans',
+      blurb: 'Every plan created across all accounts.',
+    },
+  ]
+
+  const activeTab = TABS.find((entry) => entry.id === tab)
+
   return (
-    <main className="admin-page">
-      <PageToolbar
-        backLabel="Workspace"
-        backTo="/workspace"
-        subtitle="Every account, plan, and sign-in across OakBoard"
-        title="Admin Console"
-        actions={(
-          <>
+    <main className={`form-page admin-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <div className="fill-shell">
+        {/* Same shell the workspace uses — fixed branded sidebar plus the dark
+            gradient canvas. The console used to be the one screen in the product
+            with a light page and a top toolbar, which made it read as a separate
+            application. Reusing the workspace classes keeps the two in step
+            automatically rather than by copied values. */}
+        <aside className="recent-sidebar" aria-label="Admin sidebar" id="admin-sidebar">
+          <button
+            aria-controls="admin-sidebar"
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            type="button"
+          >
+            <Icon name={sidebarCollapsed ? 'panel-expand' : 'panel-collapse'} />
+          </button>
+
+          <div className="side-brand">
+            <div className="side-logo" title="OakBoard"><Image src={oakboardLogo} alt="" height={40} width={40} /></div>
+            <div>
+              <strong>OakBoard</strong>
+              <span>Admin Console</span>
+            </div>
+          </div>
+
+          {/* The tab row became sidebar navigation. Three destinations with
+              counts read better here than as a wrapping row above the content,
+              and it matches how the workspace moves between views. */}
+          <nav className="admin-nav" aria-label="Admin sections">
+            {TABS.map((entry) => (
+              <button
+                aria-current={tab === entry.id ? 'page' : undefined}
+                className={`admin-nav__item${tab === entry.id ? ' active' : ''}`}
+                key={entry.id}
+                onClick={() => { setTab(entry.id); setNotice('') }}
+                title={entry.label}
+                type="button"
+              >
+                <Icon name={entry.icon} />
+                <span className="side-label">{entry.label}</span>
+                {entry.count !== null && <span className="admin-nav__count">{entry.count}</span>}
+              </button>
+            ))}
+          </nav>
+
+          <div className="side-footer">
+            {account && (
+              <div className="side-account" title={account.email}>
+                <span aria-hidden="true" className="side-account__avatar">
+                  {initials(account.fullName, account.email)}
+                </span>
+                <span className="side-account__text">
+                  <strong>{account.fullName || account.email.split('@')[0]}</strong>
+                  <span>{account.email}</span>
+                </span>
+              </div>
+            )}
+            <button
+              aria-label="Back to workspace"
+              className="side-footer-item"
+              onClick={() => router.push('/workspace')}
+              title="Workspace"
+              type="button"
+            >
+              <Icon name="arrow-left" />
+              <span>Workspace</span>
+            </button>
+            <button
+              aria-label="Sign out"
+              className="side-footer-item danger"
+              onClick={() => void handleSignOut()}
+              title="Sign out"
+              type="button"
+            >
+              <Icon name="sign-out" />
+              <span>Sign out</span>
+            </button>
+          </div>
+        </aside>
+
+        <header className="admin-head">
+          <div className="admin-head__copy">
+            <span className="plan-home-kicker">Admin Console</span>
+            <h1>{activeTab?.heading}</h1>
+            <p>{activeTab?.blurb}</p>
+          </div>
+          <div className="admin-head__actions">
             <Button icon="plus" onClick={openCreateUser} type="button" variant="primary">Add user</Button>
             <Button icon="check" onClick={() => void refreshAll()} type="button" variant="secondary">Refresh</Button>
-            {account && (
-              <AccountMenu
-                email={account.email}
-                fullName={account.fullName}
-                onSignOut={() => void handleSignOut()}
-                role="Administrator"
-              />
-            )}
-          </>
-        )}
-      />
+          </div>
+        </header>
 
-      <div className="admin-body">
+        <div className="admin-body">
         {error && <StatusBanner tone="error">{error}</StatusBanner>}
         {notice && !error && <StatusBanner tone="success">{notice}</StatusBanner>}
 
@@ -531,44 +647,22 @@ export default function AdminPage() {
           ))}
         </section>
 
-        <div className="admin-controls">
-          <div className="admin-tabs" role="tablist" aria-label="Admin sections">
-            <button
-              aria-selected={tab === 'overview'}
-              className={tab === 'overview' ? 'active' : ''}
-              onClick={() => { setTab('overview'); setNotice('') }}
-              role="tab"
-              type="button"
-            >Overview</button>
-            <button
-              aria-selected={tab === 'users'}
-              className={tab === 'users' ? 'active' : ''}
-              onClick={() => { setTab('users'); setNotice('') }}
-              role="tab"
-              type="button"
-            >Users {users ? `(${users.length})` : ''}</button>
-            <button
-              aria-selected={tab === 'plans'}
-              className={tab === 'plans' ? 'active' : ''}
-              onClick={() => { setTab('plans'); setNotice('') }}
-              role="tab"
-              type="button"
-            >Onboarding plans {plans ? `(${plans.length})` : ''}</button>
-          </div>
-
-          <div className="admin-filters">
-            {tab !== 'overview' && tab === 'plans' && (
-              <select
-                aria-label="Filter plans"
-                onChange={(event) => setScope(event.target.value as PlanScope)}
-                value={scope}
-              >
-                <option value="all">All plans</option>
-                <option value="active">Active only</option>
-                <option value="archived">Archived only</option>
-              </select>
-            )}
-            {tab !== 'overview' && (
+        {/* The tab row moved into the sidebar, so this row now carries only the
+            filters — and only on the two tabs that have any. */}
+        {tab !== 'overview' && (
+          <div className="admin-controls">
+            <div className="admin-filters">
+              {tab === 'plans' && (
+                <select
+                  aria-label="Filter plans"
+                  onChange={(event) => setScope(event.target.value as PlanScope)}
+                  value={scope}
+                >
+                  <option value="all">All plans</option>
+                  <option value="active">Active only</option>
+                  <option value="archived">Archived only</option>
+                </select>
+              )}
               <input
                 aria-label={tab === 'users' ? 'Search users' : 'Search plans'}
                 onChange={(event) => setSearch(event.target.value)}
@@ -576,9 +670,9 @@ export default function AdminPage() {
                 type="search"
                 value={search}
               />
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {tab === 'overview' && (
           <>
@@ -758,6 +852,7 @@ export default function AdminPage() {
             </table>
           </div>
         )}
+        </div>
       </div>
 
       <Modal
